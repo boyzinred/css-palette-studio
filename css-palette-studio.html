@@ -1,0 +1,801 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="A local CSS color-variable editor and static website palette preview.">
+  <title>CSS Palette Studio</title>
+  <style>
+    :root {
+      --app-bg: #f5f5f2;
+      --panel: #ffffff;
+      --ink: #171717;
+      --muted: #6b7280;
+      --line: #deded8;
+      --control: #eeeeea;
+      --focus: #2563eb;
+      --radius: 16px;
+      --shadow: 0 16px 50px rgba(15, 23, 42, .10);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      color-scheme: light;
+    }
+
+    * { box-sizing: border-box; }
+    html { min-width: 320px; background: var(--app-bg); }
+    body { margin: 0; min-height: 100vh; background: var(--app-bg); color: var(--ink); }
+    button, input, textarea { font: inherit; }
+    button { color: inherit; }
+
+    .app { min-height: 100vh; display: flex; flex-direction: column; }
+
+    .topbar {
+      position: sticky;
+      top: 0;
+      z-index: 20;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 18px;
+      min-height: 72px;
+      padding: 12px 22px;
+      border-bottom: 1px solid var(--line);
+      background: color-mix(in srgb, var(--panel) 94%, transparent);
+      backdrop-filter: blur(14px);
+    }
+
+    .brand { display: flex; align-items: center; gap: 12px; min-width: 0; }
+    .brand-mark {
+      width: 38px;
+      height: 38px;
+      display: grid;
+      place-items: center;
+      border-radius: 50%;
+      background: #171717;
+      color: white;
+      font-weight: 900;
+      letter-spacing: -.08em;
+    }
+    .brand-copy { min-width: 0; }
+    .brand-copy strong { display: block; font-size: 15px; letter-spacing: -.02em; }
+    .brand-copy span { display: block; color: var(--muted); font-size: 12px; }
+
+    .tabs, .actions, .preview-tools { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+
+    .tab, .button, .icon-button, .device-button {
+      min-height: 42px;
+      border: 1px solid transparent;
+      border-radius: 999px;
+      background: transparent;
+      cursor: pointer;
+      transition: background 150ms ease, border-color 150ms ease, transform 150ms ease;
+    }
+
+    .tab { padding: 0 16px; color: var(--muted); font-size: 13px; font-weight: 750; }
+    .tab[aria-selected="true"] { background: var(--ink); color: white; }
+    .button { padding: 0 16px; background: var(--control); font-size: 13px; font-weight: 750; }
+    .button.primary { background: var(--ink); color: white; }
+    .button:hover, .icon-button:hover, .device-button:hover { transform: translateY(-1px); }
+    .icon-button { width: 42px; padding: 0; background: var(--control); font-size: 18px; }
+    .device-button { min-height: 36px; padding: 0 12px; font-size: 12px; font-weight: 750; color: var(--muted); }
+    .device-button[aria-pressed="true"] { background: var(--ink); color: white; }
+
+    button:focus-visible, input:focus-visible, textarea:focus-visible {
+      outline: 3px solid var(--focus);
+      outline-offset: 2px;
+    }
+
+    .workspace { flex: 1; min-height: 0; }
+    .view { display: none; }
+    .view.active { display: block; }
+
+    .palette-layout {
+      min-height: calc(100vh - 73px);
+      display: grid;
+      grid-template-rows: minmax(420px, 1fr) auto;
+    }
+
+    .swatches {
+      display: grid;
+      grid-template-columns: repeat(var(--count, 5), minmax(150px, 1fr));
+      min-height: 440px;
+      overflow-x: auto;
+      scroll-snap-type: x proximity;
+    }
+
+    .swatch {
+      position: relative;
+      min-width: 150px;
+      min-height: 440px;
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-end;
+      padding: 22px 16px;
+      scroll-snap-align: start;
+      isolation: isolate;
+    }
+
+    .swatch-tools {
+      position: absolute;
+      inset: 16px 14px auto;
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+      opacity: .15;
+      transition: opacity 150ms ease;
+    }
+    .swatch:hover .swatch-tools, .swatch:focus-within .swatch-tools { opacity: 1; }
+
+    .swatch-button, .lock-label {
+      width: 38px;
+      height: 38px;
+      display: grid;
+      place-items: center;
+      border: 0;
+      border-radius: 50%;
+      background: color-mix(in srgb, currentColor 14%, transparent);
+      color: inherit;
+      cursor: pointer;
+    }
+    .lock-label input { position: absolute; opacity: 0; pointer-events: none; }
+    .lock-label:has(input:checked) { background: currentColor; }
+    .lock-label:has(input:checked) span { color: var(--swatch); filter: invert(1) grayscale(1) contrast(10); }
+
+    .swatch-content { display: grid; gap: 10px; }
+    .variable-input, .hex-input {
+      width: 100%;
+      border: 0;
+      border-bottom: 1px solid color-mix(in srgb, currentColor 35%, transparent);
+      border-radius: 0;
+      padding: 7px 2px;
+      background: transparent;
+      color: inherit;
+    }
+    .variable-input { font-size: 12px; font-weight: 700; opacity: .78; }
+    .hex-row { display: grid; grid-template-columns: minmax(0, 1fr) 42px; gap: 9px; align-items: center; }
+    .hex-input { font-size: 24px; font-weight: 850; letter-spacing: -.035em; text-transform: uppercase; }
+    .color-picker {
+      width: 42px;
+      height: 42px;
+      padding: 0;
+      border: 2px solid currentColor;
+      border-radius: 50%;
+      overflow: hidden;
+      background: transparent;
+      cursor: pointer;
+    }
+    .color-picker::-webkit-color-swatch-wrapper { padding: 0; }
+    .color-picker::-webkit-color-swatch { border: 0; border-radius: 50%; }
+    .color-picker::-moz-color-swatch { border: 0; border-radius: 50%; }
+
+    .editor-panel {
+      display: grid;
+      grid-template-columns: minmax(0, 1.1fr) minmax(0, .9fr);
+      gap: 18px;
+      padding: 20px;
+      border-top: 1px solid var(--line);
+      background: var(--app-bg);
+    }
+    .panel {
+      min-width: 0;
+      padding: 18px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: var(--panel);
+    }
+    .panel-heading { display: flex; justify-content: space-between; gap: 12px; align-items: flex-start; margin-bottom: 12px; }
+    .panel h2 { margin: 0; font-size: 15px; letter-spacing: -.02em; }
+    .panel p { margin: 4px 0 0; color: var(--muted); font-size: 12px; line-height: 1.5; }
+    textarea {
+      width: 100%;
+      min-height: 145px;
+      resize: vertical;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 14px;
+      background: #fafaf8;
+      color: var(--ink);
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 13px;
+      line-height: 1.5;
+    }
+    .panel-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+    .output-tabs { display: flex; gap: 6px; margin-bottom: 9px; }
+    .output-tab { min-height: 34px; padding: 0 11px; border: 0; border-radius: 999px; background: transparent; color: var(--muted); font-size: 12px; font-weight: 750; cursor: pointer; }
+    .output-tab.active { background: var(--control); color: var(--ink); }
+    .status { min-height: 20px; margin-top: 8px; color: var(--muted); font-size: 12px; }
+    .status.error { color: #b91c1c; }
+
+    .website-view { padding: 20px; }
+    .preview-shell {
+      min-height: calc(100vh - 113px);
+      display: grid;
+      grid-template-rows: auto minmax(0, 1fr);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      overflow: hidden;
+      background: var(--panel);
+      box-shadow: var(--shadow);
+    }
+    .preview-bar {
+      min-height: 58px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+      padding: 10px 14px;
+      border-bottom: 1px solid var(--line);
+      background: var(--panel);
+    }
+    .preview-title strong { display: block; font-size: 13px; }
+    .preview-title span { display: block; color: var(--muted); font-size: 11px; margin-top: 2px; }
+    .preview-stage {
+      height: max(680px, calc(100vh - 190px));
+      min-height: 680px;
+      display: grid;
+      place-items: stretch center;
+      overflow: hidden;
+      padding: 22px;
+      background: #d9d9d4;
+    }
+    .preview-frame-wrap {
+      width: 100%;
+      max-width: 1440px;
+      height: 100%;
+      min-height: 0;
+      transition: width 180ms ease;
+    }
+    .preview-frame-wrap.mobile { width: 390px; max-width: 100%; }
+    iframe {
+      display: block;
+      width: 100%;
+      height: 100%;
+      min-height: 636px;
+      border: 0;
+      border-radius: 8px;
+      background: white;
+      pointer-events: auto;
+    }
+
+    .kbd { display: inline-grid; place-items: center; min-width: 25px; min-height: 24px; padding: 0 7px; border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 6px; background: var(--panel); color: var(--muted); font-size: 11px; font-weight: 700; }
+
+    @media (max-width: 900px) {
+      .topbar { align-items: flex-start; flex-wrap: wrap; }
+      .tabs { order: 3; width: 100%; }
+      .editor-panel { grid-template-columns: 1fr; }
+      .swatches { grid-template-columns: repeat(var(--count, 5), minmax(180px, 1fr)); }
+    }
+
+    @media (max-width: 620px) {
+      .topbar { padding: 10px 12px; }
+      .brand-copy span { display: none; }
+      .actions .button span.optional { display: none; }
+      .palette-layout { min-height: calc(100vh - 122px); }
+      .swatches { min-height: 500px; }
+      .swatch { min-height: 500px; }
+      .editor-panel, .website-view { padding: 12px; }
+      .preview-stage { height: 72vh; min-height: 600px; padding: 10px; }
+      .preview-frame-wrap { min-height: 0; }
+      iframe { min-height: 580px; }
+      .preview-bar { align-items: flex-start; flex-direction: column; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      * { transition: none !important; scroll-behavior: auto !important; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header class="topbar">
+      <div class="brand">
+        <div class="brand-mark" aria-hidden="true">C°</div>
+        <div class="brand-copy">
+          <strong>CSS Palette Studio</strong>
+          <span>Edit variables and preview your tutoring site</span>
+        </div>
+      </div>
+
+      <nav class="tabs" aria-label="Studio views">
+        <button class="tab" type="button" role="tab" aria-selected="true" data-view="palette">Palette</button>
+        <button class="tab" type="button" role="tab" aria-selected="false" data-view="website">See as website</button>
+      </nav>
+
+      <div class="actions">
+        <button class="button" id="addColor" type="button">+ <span class="optional">Add color</span></button>
+        <button class="button primary" id="randomizeAll" type="button">Randomize <span class="optional">unlocked</span></button>
+      </div>
+    </header>
+
+    <main class="workspace">
+      <section class="view active" id="paletteView" data-view-panel="palette">
+        <div class="palette-layout">
+          <div class="swatches" id="swatches" aria-live="polite"></div>
+
+          <div class="editor-panel">
+            <section class="panel" aria-labelledby="importHeading">
+              <div class="panel-heading">
+                <div>
+                  <h2 id="importHeading">Import colors</h2>
+                  <p>Paste CSS variables, hex values, or a JSON-style color array.</p>
+                </div>
+                <span class="kbd" title="Press Space while not typing">Space</span>
+              </div>
+              <label for="importInput" style="position:absolute;left:-9999px">CSS variables or color array</label>
+              <textarea id="importInput" spellcheck="false" placeholder=":root {&#10;  --primary: #3B82F6;&#10;  --accent: #F59E0B;&#10;}&#10;&#10;or [\"#606c38\", \"#283618\", \"#fefae0\", \"#dda15e\", \"#bc6c25\"]"></textarea>
+              <div class="panel-actions">
+                <button class="button primary" id="importButton" type="button">Import palette</button>
+                <button class="button" id="sampleButton" type="button">Load sample array</button>
+                <button class="button" id="resetButton" type="button">Design-system defaults</button>
+              </div>
+              <div class="status" id="importStatus" role="status"></div>
+            </section>
+
+            <section class="panel" aria-labelledby="exportHeading">
+              <div class="panel-heading">
+                <div>
+                  <h2 id="exportHeading">Export palette</h2>
+                  <p>Copy the current colors as variables or as a plain array.</p>
+                </div>
+              </div>
+              <div class="output-tabs" role="tablist" aria-label="Export format">
+                <button class="output-tab active" type="button" data-output="css">CSS</button>
+                <button class="output-tab" type="button" data-output="array">Array</button>
+              </div>
+              <label for="exportOutput" style="position:absolute;left:-9999px">Exported palette</label>
+              <textarea id="exportOutput" readonly spellcheck="false"></textarea>
+              <div class="panel-actions">
+                <button class="button primary" id="copyButton" type="button">Copy output</button>
+              </div>
+              <div class="status" id="copyStatus" role="status"></div>
+            </section>
+          </div>
+        </div>
+      </section>
+
+      <section class="view website-view" id="websiteView" data-view-panel="website">
+        <div class="preview-shell">
+          <div class="preview-bar">
+            <div class="preview-title">
+              <strong>Static preview · July 22 Grammar & IELTS Lab</strong>
+              <span>Scripts and links are disabled; palette changes update live.</span>
+            </div>
+            <div class="preview-tools" aria-label="Preview width">
+              <button class="device-button" type="button" aria-pressed="true" data-device="desktop">Desktop</button>
+              <button class="device-button" type="button" aria-pressed="false" data-device="mobile">Mobile</button>
+              <button class="button" id="shuffleFromPreview" type="button">Randomize palette</button>
+            </div>
+          </div>
+          <div class="preview-stage">
+            <div class="preview-frame-wrap" id="previewWrap">
+              <iframe id="previewFrame" title="Scrollable static palette preview of the July 22 Grammar and IELTS lab" sandbox=""></iframe>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script>
+    const QUIZ_STATIC_HTML = "<!DOCTYPE html>\n\n<html data-static-preview=\"true\" lang=\"en\">\n<head>\n\n<meta charset=\"utf-8\"/>\n<meta content=\"width=device-width, initial-scale=1.0\" name=\"viewport\"/>\n<meta content=\"Interactive English grammar and IELTS typing practice quiz\" name=\"description\"/>\n<title>English Grammar &amp; IELTS Typing Lab</title>\n<style>\n\n    :root {\n      color-scheme: light;\n      --background:#FFFFFF;\n      --foreground:#111827;\n      --primary:#3B82F6;\n      --primary-hover:#2563EB;\n      --secondary:#10B981;\n      --secondary-soft:#D1FAE5;\n      --accent:#F59E0B;\n      --accent-soft:#FEF3C7;\n      --muted:#F3F4F6;\n      --muted-strong:#E5E7EB;\n      --blue-soft:#DBEAFE;\n      --border:#E5E7EB;\n      --radius-md:6px;\n      --radius-lg:8px;\n      --font:'Outfit',sans-serif;\n      --transition:all 200ms ease;\n\n      /* Compatibility aliases used by the existing quiz markup and scripts. */\n      --bg:var(--background);\n      --fg:var(--foreground);\n      --line:var(--border);\n      --field:var(--muted);\n      --subtle:#4B5563;\n      --correct-bg:var(--secondary);\n      --correct-fg:var(--foreground);\n      --text:var(--foreground);\n      --subtext1:#4B5563;\n      --subtext0:#4B5563;\n      --surface0:var(--muted);\n      --surface1:var(--muted-strong);\n      --surface2:var(--border);\n      --base:var(--background);\n      --mantle:var(--muted);\n      --crust:var(--foreground);\n      --blue:var(--primary);\n      --mauve:var(--primary);\n      --red:var(--accent);\n      --green:var(--secondary);\n      --peach:var(--accent);\n      --yellow:var(--accent);\n    }\n\n    * { box-sizing:border-box; }\n    html { scroll-behavior:smooth; }\n    [hidden] { display:none !important; }\n\n    body {\n      margin:0;\n      min-height:100vh;\n      color:var(--foreground);\n      background:var(--muted);\n      font-family:var(--font);\n      font-size:16px;\n      line-height:1.6;\n    }\n\n    button,input,textarea,select { font:inherit; }\n    button { cursor:pointer; }\n    a { color:inherit; }\n    h1,h2,h3,p { margin-top:0; }\n    h1,h2,h3 {\n      line-height:1;\n      letter-spacing:-.02em;\n    }\n\n    .site-header {\n      position:sticky;\n      top:0;\n      z-index:40;\n      background:var(--background);\n    }\n\n    .header-inner {\n      width:min(1280px,calc(100% - 32px));\n      min-height:76px;\n      margin:0 auto;\n      display:grid;\n      grid-template-columns:1fr auto;\n      align-items:center;\n      gap:24px;\n    }\n\n    .brand {\n      min-width:0;\n      display:flex;\n      align-items:center;\n      gap:14px;\n    }\n\n    .brand-mark {\n      width:48px;\n      height:48px;\n      flex:0 0 auto;\n      display:grid;\n      place-items:center;\n      color:#FFFFFF;\n      background:var(--primary);\n      border-radius:var(--radius-lg);\n      font-weight:800;\n      letter-spacing:-.04em;\n    }\n\n    .brand-copy strong {\n      display:block;\n      font-size:clamp(.95rem,1.8vw,1.2rem);\n      font-weight:800;\n      letter-spacing:-.02em;\n    }\n\n    .brand-copy span {\n      display:block;\n      color:#6B7280;\n      font-size:.74rem;\n      font-weight:600;\n      letter-spacing:.12em;\n      text-transform:uppercase;\n    }\n\n    .header-actions {\n      display:flex;\n      align-items:center;\n      gap:10px;\n    }\n\n    .home-link,.system-badge {\n      min-height:44px;\n      display:inline-flex;\n      align-items:center;\n      justify-content:center;\n      padding:0 16px;\n      border-radius:var(--radius-md);\n      font-size:.78rem;\n      font-weight:700;\n      letter-spacing:.1em;\n      text-decoration:none;\n      text-transform:uppercase;\n      transition:var(--transition);\n      white-space:nowrap;\n    }\n\n    .home-link {\n      color:#FFFFFF;\n      background:var(--primary);\n    }\n\n    .home-link:hover {\n      background:var(--primary-hover);\n      transform:scale(1.05);\n    }\n\n    .system-badge {\n      color:var(--foreground);\n      background:var(--muted);\n    }\n\n    main {\n      width:min(1280px,calc(100% - 32px));\n      margin:0 auto 64px;\n      overflow:hidden;\n      background:var(--background);\n      border-radius:var(--radius-lg);\n    }\n\n    .hero {\n      position:relative;\n      display:grid;\n      grid-template-columns:7fr 5fr;\n      min-height:570px;\n      overflow:hidden;\n      background:var(--primary);\n    }\n\n    .hero::before,\n    .hero::after {\n      content:\"\";\n      position:absolute;\n      pointer-events:none;\n      opacity:.1;\n    }\n\n    .hero::before {\n      width:360px;\n      height:360px;\n      right:28%;\n      top:-150px;\n      border-radius:50%;\n      background:#FFFFFF;\n    }\n\n    .hero::after {\n      width:260px;\n      height:260px;\n      left:-90px;\n      bottom:-110px;\n      background:#FFFFFF;\n      transform:rotate(18deg);\n    }\n\n    .hero-card,.toc-card,.section-card,.exercise-card {\n      box-shadow:none;\n    }\n\n    .hero-card {\n      position:relative;\n      z-index:1;\n      min-height:570px;\n      display:flex;\n      flex-direction:column;\n      justify-content:center;\n      padding:clamp(36px,6vw,80px);\n      color:#FFFFFF;\n      background:transparent;\n    }\n\n    .eyebrow,.section-kicker {\n      display:block;\n      margin-bottom:18px;\n      font-size:.78rem;\n      font-weight:700;\n      letter-spacing:.18em;\n      text-transform:uppercase;\n    }\n\n    .eyebrow { color:var(--accent-soft); }\n\n    h1 {\n      max-width:10ch;\n      margin:.15rem 0 1.6rem;\n      font-size:clamp(3.4rem,8vw,7.5rem);\n      font-weight:800;\n      line-height:.86;\n    }\n\n    .hero p {\n      max-width:58ch;\n      margin-bottom:0;\n      color:#EFF6FF;\n      font-size:clamp(1rem,1.5vw,1.22rem);\n    }\n\n    .hero-chips {\n      display:flex;\n      flex-wrap:wrap;\n      gap:8px;\n      margin-top:30px;\n    }\n\n    .chip {\n      padding:9px 12px;\n      color:var(--foreground);\n      background:#FFFFFF;\n      border-radius:999px;\n      font-size:.72rem;\n      font-weight:700;\n      letter-spacing:.06em;\n      text-transform:uppercase;\n    }\n\n    .toc-card {\n      position:relative;\n      z-index:2;\n      align-self:center;\n      margin:clamp(24px,5vw,56px);\n      padding:clamp(26px,4vw,42px);\n      color:#FFFFFF;\n      background:var(--foreground);\n      border-radius:var(--radius-lg);\n    }\n\n    .toc-card h2 {\n      margin-bottom:24px;\n      color:var(--secondary);\n      font-size:.82rem;\n      font-weight:700;\n      letter-spacing:.16em;\n      text-transform:uppercase;\n    }\n\n    .toc-list {\n      list-style:none;\n      padding:0;\n      margin:0;\n      display:grid;\n      gap:8px;\n    }\n\n    .toc-list a {\n      min-height:52px;\n      display:flex;\n      align-items:center;\n      justify-content:space-between;\n      gap:16px;\n      padding:11px 14px;\n      color:#FFFFFF;\n      background:#1F2937;\n      border-radius:var(--radius-md);\n      font-weight:600;\n      text-decoration:none;\n      transition:var(--transition);\n    }\n\n    .toc-list a:hover {\n      color:var(--foreground);\n      background:var(--secondary);\n      transform:translateX(6px);\n    }\n\n    .toc-number {\n      margin-right:8px;\n      color:var(--accent);\n      font-weight:800;\n    }\n\n    .toc-list a:hover .toc-number { color:var(--foreground); }\n\n    .section-card {\n      margin:0;\n      scroll-margin-top:90px;\n      background:var(--background);\n    }\n\n    .section-header {\n      min-height:150px;\n      display:flex;\n      align-items:center;\n      justify-content:space-between;\n      gap:28px;\n      padding:clamp(30px,5vw,64px);\n      background:var(--muted);\n    }\n\n    .section-card:nth-of-type(3n+2) .section-header {\n      color:var(--foreground);\n      background:var(--secondary);\n    }\n\n    .section-card:nth-of-type(3n+3) .section-header {\n      color:var(--foreground);\n      background:var(--accent);\n    }\n\n    .section-card:nth-of-type(3n+4) .section-header {\n      color:#FFFFFF;\n      background:var(--primary);\n    }\n\n    .section-kicker {\n      margin-bottom:12px;\n      color:inherit;\n      opacity:.8;\n    }\n\n    .section-header h2 {\n      margin:.15rem 0 0;\n      max-width:18ch;\n      font-size:clamp(2.2rem,5vw,4.8rem);\n      font-weight:800;\n    }\n\n    .collapse-btn,.btn {\n      min-height:56px;\n      padding:0 20px;\n      border:0;\n      border-radius:var(--radius-md);\n      font-size:.78rem;\n      font-weight:700;\n      letter-spacing:.08em;\n      text-transform:uppercase;\n      transition:var(--transition);\n    }\n\n    .collapse-btn {\n      color:var(--foreground);\n      background:#FFFFFF;\n      border:4px solid currentColor;\n    }\n\n    .collapse-btn:hover,.btn:hover:not(:disabled) {\n      transform:scale(1.05);\n    }\n\n    .collapse-btn:hover {\n      color:#FFFFFF;\n      background:var(--foreground);\n      border-color:var(--foreground);\n    }\n\n    .section-content {\n      padding:clamp(26px,5vw,64px);\n      background:var(--background);\n    }\n\n    .section-card:nth-of-type(even) .section-content {\n      background:var(--muted);\n    }\n\n    .explanation {\n      position:relative;\n      margin-bottom:28px;\n      padding:clamp(22px,3vw,32px);\n      color:var(--foreground);\n      background:var(--blue-soft);\n      border-radius:var(--radius-lg);\n    }\n\n    .explanation::before {\n      content:\"RULE\";\n      display:inline-block;\n      margin-bottom:12px;\n      padding:6px 9px;\n      color:#FFFFFF;\n      background:var(--primary);\n      border-radius:999px;\n      font-size:.68rem;\n      font-weight:700;\n      letter-spacing:.12em;\n    }\n\n    .exercise-grid {\n      display:grid;\n      gap:28px;\n    }\n\n    .exercise-card {\n      overflow:hidden;\n      background:#FFFFFF;\n      border-radius:var(--radius-lg);\n      transition:var(--transition);\n    }\n\n    .section-content:not([style]) .exercise-card:hover {\n      transform:scale(1.01);\n    }\n\n    .exercise-head {\n      display:flex;\n      justify-content:space-between;\n      align-items:stretch;\n      gap:0;\n      color:#FFFFFF;\n      background:var(--foreground);\n    }\n\n    .exercise-head > div:first-child {\n      padding:26px;\n    }\n\n    .exercise-head h3 {\n      margin-bottom:8px;\n      font-size:clamp(1.45rem,3vw,2.3rem);\n      font-weight:800;\n    }\n\n    .exercise-head p {\n      margin:0;\n      color:#D1D5DB;\n      font-size:.95rem;\n    }\n\n    .score-pill,.set-pill {\n      min-width:158px;\n      display:grid;\n      place-items:center;\n      align-self:stretch;\n      padding:18px;\n      color:var(--foreground);\n      background:var(--accent);\n      font-size:.78rem;\n      font-weight:700;\n      letter-spacing:.08em;\n      text-align:center;\n      text-transform:uppercase;\n    }\n\n    .progress-track {\n      height:12px;\n      overflow:hidden;\n      background:var(--muted-strong);\n    }\n\n    .progress-bar,.progress-fill {\n      width:0;\n      height:100%;\n      background:var(--secondary);\n      transition:width 200ms ease;\n    }\n\n    .question-box,.timed-stage {\n      padding:clamp(24px,4vw,38px);\n    }\n\n    .question-meta {\n      margin-bottom:12px;\n      color:var(--primary);\n      font-size:.75rem;\n      font-weight:700;\n      letter-spacing:.14em;\n      text-transform:uppercase;\n    }\n\n    .question-text,.timed-prompt {\n      margin:.1rem 0 24px;\n      color:var(--foreground);\n      font-size:clamp(1.25rem,2.5vw,2rem);\n      font-weight:700;\n      line-height:1.2;\n      white-space:pre-line;\n    }\n\n    .answer-input,.timed-answer,input,select,textarea {\n      width:100%;\n      color:var(--foreground);\n      background:var(--muted);\n      border:2px solid transparent;\n      border-radius:var(--radius-md);\n      outline:0;\n      transition:var(--transition);\n    }\n\n    .answer-input,input,select {\n      min-height:56px;\n      padding:0 16px;\n    }\n\n    .timed-answer,textarea {\n      min-height:160px;\n      padding:16px;\n      resize:vertical;\n    }\n\n    .answer-input:focus,.timed-answer:focus,input:focus,select:focus,textarea:focus {\n      background:#FFFFFF;\n      border-color:var(--primary);\n    }\n\n    .timed-answer:disabled,.answer-input:disabled {\n      opacity:1;\n      cursor:not-allowed;\n      color:#6B7280;\n      background:var(--muted-strong);\n    }\n\n    .option-list {\n      display:grid;\n      gap:10px;\n    }\n\n    .option-btn {\n      width:100%;\n      min-height:58px;\n      padding:14px 16px;\n      color:var(--foreground);\n      background:var(--muted);\n      border:0;\n      border-radius:var(--radius-md);\n      text-align:left;\n      font-weight:600;\n      transition:var(--transition);\n    }\n\n    .option-btn:hover:not(:disabled) {\n      color:#FFFFFF;\n      background:var(--primary);\n      transform:translateX(5px);\n    }\n\n    .option-btn.selected {\n      color:#FFFFFF;\n      background:var(--primary);\n    }\n\n    .option-btn.correct-choice {\n      color:var(--foreground);\n      background:var(--secondary);\n    }\n\n    .option-btn.wrong-choice {\n      color:var(--foreground);\n      background:var(--accent);\n    }\n\n    .option-btn:disabled {\n      cursor:not-allowed;\n      opacity:1;\n    }\n\n    .button-row {\n      display:flex;\n      flex-wrap:wrap;\n      gap:10px;\n      margin-top:22px;\n    }\n\n    .btn-primary {\n      color:#FFFFFF;\n      background:var(--primary);\n    }\n\n    .btn-primary:hover:not(:disabled) { background:var(--primary-hover); }\n\n    .btn-accent {\n      color:var(--foreground);\n      background:var(--secondary);\n    }\n\n    .btn-warning {\n      color:var(--foreground);\n      background:var(--accent);\n    }\n\n    .btn-secondary {\n      color:var(--foreground);\n      background:var(--muted);\n    }\n\n    .btn-secondary:hover:not(:disabled) { background:var(--muted-strong); }\n\n    .btn:disabled {\n      opacity:.45;\n      cursor:not-allowed;\n      transform:none;\n    }\n\n    .feedback,.practice-summary,.review-panel {\n      margin-top:20px;\n      padding:20px;\n      border:0;\n      border-radius:var(--radius-lg);\n      white-space:pre-line;\n    }\n\n    .feedback { display:none; }\n    .feedback.show { display:block; }\n    .feedback.correct {\n      color:var(--foreground);\n      background:var(--secondary-soft);\n      border-left:8px solid var(--secondary);\n    }\n\n    .feedback.incorrect {\n      color:var(--foreground);\n      background:var(--accent-soft);\n      border-left:8px solid var(--accent);\n    }\n\n    .feedback.neutral {\n      color:var(--foreground);\n      background:var(--muted);\n      border-left:8px solid var(--primary);\n    }\n\n    .practice-summary {\n      color:var(--foreground);\n      background:var(--blue-soft);\n    }\n\n    .practice-summary strong,.practice-summary h4 {\n      display:block;\n      margin:0 0 10px;\n      font-size:.82rem;\n      font-weight:700;\n      letter-spacing:.12em;\n      text-transform:uppercase;\n    }\n\n    .practice-summary ul {\n      margin:10px 0 0;\n      padding-left:22px;\n    }\n\n    .review-nav {\n      display:flex;\n      flex-wrap:wrap;\n      gap:10px;\n      margin-top:16px;\n    }\n\n    .review-panel {\n      background:var(--muted);\n    }\n\n    .review-answer-grid {\n      display:grid;\n      grid-template-columns:1fr 1fr;\n      gap:12px;\n    }\n\n    .review-answer-grid > div {\n      padding:18px;\n      background:#FFFFFF;\n      border-radius:var(--radius-md);\n    }\n\n    .review-answer-grid span {\n      display:block;\n      margin-bottom:8px;\n      color:var(--primary);\n      font-size:.72rem;\n      font-weight:700;\n      letter-spacing:.12em;\n      text-transform:uppercase;\n    }\n\n    .timer-panel,.timer-shell {\n      display:grid;\n      grid-template-columns:minmax(0,1fr) 220px;\n      gap:0;\n      align-items:stretch;\n    }\n\n    .timer-panel > div:first-child,.timed-stage {\n      min-height:280px;\n      padding:clamp(24px,4vw,38px);\n      background:#FFFFFF;\n    }\n\n    .timer-display,.timer-box {\n      min-height:230px;\n      display:grid;\n      place-items:center;\n      padding:22px;\n      color:#FFFFFF;\n      background:var(--primary);\n      text-align:center;\n    }\n\n    .timer-display strong,.timer-box strong {\n      display:block;\n      color:#FFFFFF;\n      font-size:clamp(3rem,7vw,5.2rem);\n      line-height:1;\n      letter-spacing:-.05em;\n    }\n\n    .timer-display span,.timer-box span,.timed-instructions {\n      color:inherit;\n      font-size:.8rem;\n      font-weight:600;\n      letter-spacing:.08em;\n      text-transform:uppercase;\n    }\n\n    .timer-box.danger {\n      color:var(--foreground);\n      background:var(--accent);\n    }\n\n    .timer-box.danger strong,.timer-box.danger span {\n      color:var(--foreground);\n    }\n\n    .mode-row {\n      display:flex;\n      align-items:center;\n      justify-content:space-between;\n      gap:16px;\n      margin:18px 0 0;\n      padding:14px 16px;\n      color:var(--foreground);\n      background:var(--muted);\n      border-radius:var(--radius-md);\n    }\n\n    .mode-option {\n      display:flex;\n      align-items:center;\n      gap:10px;\n      margin:0;\n      font-size:.78rem;\n      font-weight:700;\n      letter-spacing:.08em;\n      text-transform:uppercase;\n    }\n\n    .mode-option input {\n      width:22px;\n      min-height:22px;\n      height:22px;\n      margin:0;\n      padding:0;\n      accent-color:var(--primary);\n    }\n\n    .round-summary {\n      padding:24px;\n      color:var(--foreground);\n      background:var(--secondary-soft);\n      border-radius:var(--radius-lg);\n    }\n\n    .round-summary h3 {\n      font-size:clamp(1.8rem,4vw,3rem);\n      font-weight:800;\n    }\n\n    .timed-placeholder { color:#6B7280; }\n\n    .source-note {\n      margin:0;\n      padding:24px clamp(24px,4vw,56px);\n      color:#6B7280;\n      background:var(--muted);\n      font-size:.8rem;\n      font-weight:500;\n    }\n\n    .back-to-toc {\n      position:fixed;\n      right:18px;\n      bottom:18px;\n      z-index:30;\n      min-height:48px;\n      display:flex;\n      align-items:center;\n      padding:0 16px;\n      color:#FFFFFF;\n      background:var(--foreground);\n      border-radius:var(--radius-md);\n      font-size:.74rem;\n      font-weight:700;\n      letter-spacing:.08em;\n      text-decoration:none;\n      text-transform:uppercase;\n      transition:var(--transition);\n    }\n\n    .back-to-toc:hover {\n      background:var(--primary);\n      transform:scale(1.05);\n    }\n\n    .sr-only {\n      position:absolute !important;\n      width:1px !important;\n      height:1px !important;\n      padding:0 !important;\n      margin:-1px !important;\n      overflow:hidden !important;\n      clip:rect(0,0,0,0) !important;\n      white-space:nowrap !important;\n      border:0 !important;\n    }\n\n    button:focus-visible,a:focus-visible,input:focus-visible,textarea:focus-visible,select:focus-visible {\n      outline:2px solid var(--primary);\n      outline-offset:3px;\n    }\n\n    @media (max-width:900px) {\n      .hero { grid-template-columns:1fr; }\n      .hero-card { min-height:500px; }\n      .toc-card { margin-top:0; }\n      .timer-panel,.timer-shell { grid-template-columns:1fr; }\n      .timer-display,.timer-box { min-height:150px; }\n    }\n\n    @media (max-width:680px) {\n      .header-inner {\n        width:min(100% - 24px,1280px);\n        grid-template-columns:1fr;\n        padding:12px 0;\n        gap:10px;\n      }\n\n      .header-actions { justify-content:space-between; }\n      .home-link,.system-badge { flex:1; }\n      main { width:100%; margin-bottom:0; border-radius:0; }\n      .hero-card,.toc-card,.section-header,.section-content { padding-left:22px; padding-right:22px; }\n      .toc-card { margin:0 22px 28px; }\n      .section-header {\n        align-items:flex-start;\n        flex-direction:column;\n      }\n\n      .collapse-btn { width:100%; }\n      .exercise-head { flex-direction:column; }\n      .exercise-head > div:first-child { padding:22px; }\n      .score-pill,.set-pill {\n        min-width:0;\n        width:100%;\n        min-height:52px;\n      }\n\n      .button-row { display:grid; }\n      .btn { width:100%; }\n      .review-answer-grid { grid-template-columns:1fr; }\n      .brand-copy span { display:none; }\n      .back-to-toc { right:8px; bottom:8px; }\n      .mode-row { align-items:flex-start; flex-direction:column; }\n    }\n\n    @media (prefers-reduced-motion:reduce) {\n      *,*::before,*::after {\n        scroll-behavior:auto !important;\n        transition:none !important;\n        transform:none !important;\n      }\n    }\n  </style>\n<style id=\"flat-dark-mode\">\n    .theme-toggle {\n      min-height: 44px;\n      display: inline-flex !important;\n      align-items: center;\n      justify-content: center;\n      gap: 8px;\n      padding: 0 15px;\n      color: var(--foreground);\n      background: var(--muted);\n      border: 0;\n      border-radius: var(--radius-md);\n      font: inherit;\n      font-size: .76rem;\n      font-weight: 700;\n      letter-spacing: .08em;\n      text-transform: uppercase;\n      white-space: nowrap;\n      cursor: pointer;\n      transition: var(--transition);\n    }\n\n    .theme-toggle:hover {\n      color: #FFFFFF;\n      background: var(--primary);\n      transform: scale(1.05);\n    }\n\n    .theme-toggle__icon {\n      width: 1.2em;\n      display: inline-grid;\n      place-items: center;\n      font-size: 1rem;\n      line-height: 1;\n    }\n\n    html[data-theme=\"dark\"] {\n      color-scheme: dark;\n      --background: #111827;\n      --foreground: #F9FAFB;\n      --primary: #60A5FA;\n      --primary-hover: #3B82F6;\n      --secondary: #34D399;\n      --accent: #FBBF24;\n      --muted: #1F2937;\n      --muted-strong: #374151;\n      --border: #374151;\n      --blue-soft: #172554;\n      --green-soft: #052E2B;\n      --amber-soft: #451A03;\n      --secondary-soft: #052E2B;\n      --accent-soft: #451A03;\n      --bg: var(--background);\n      --fg: var(--foreground);\n      --line: var(--border);\n      --field: var(--muted);\n      --subtle: #CBD5E1;\n      --correct-bg: var(--secondary);\n      --correct-fg: #052E2B;\n      --text: var(--foreground);\n      --subtext1: #CBD5E1;\n      --subtext0: #94A3B8;\n      --surface0: var(--muted);\n      --surface1: var(--muted-strong);\n      --surface2: var(--border);\n      --base: var(--background);\n      --mantle: #0F172A;\n      --crust: #020617;\n      --blue: var(--primary);\n      --mauve: var(--primary);\n      --red: #FB7185;\n      --green: var(--secondary);\n      --peach: #FB923C;\n      --yellow: var(--accent);\n    }\n\n    html[data-theme=\"dark\"] body { background: #0B1220; }\n\n    html[data-theme=\"dark\"] .site-header,\n    html[data-theme=\"dark\"] body > .shell > header,\n    html[data-theme=\"dark\"] main,\n    html[data-theme=\"dark\"] .shell,\n    html[data-theme=\"dark\"] .section,\n    html[data-theme=\"dark\"] .section-card,\n    html[data-theme=\"dark\"] .block,\n    html[data-theme=\"dark\"] .quiz-section,\n    html[data-theme=\"dark\"] .section-content,\n    html[data-theme=\"dark\"] .block-inner,\n    html[data-theme=\"dark\"] .quiz-body,\n    html[data-theme=\"dark\"] .card-grid,\n    html[data-theme=\"dark\"] .guide-card,\n    html[data-theme=\"dark\"] .note-card,\n    html[data-theme=\"dark\"] .control-card,\n    html[data-theme=\"dark\"] .quiz-card,\n    html[data-theme=\"dark\"] .exercise-card,\n    html[data-theme=\"dark\"] .ref-section,\n    html[data-theme=\"dark\"] .review-answer-grid > div,\n    html[data-theme=\"dark\"] .timer-panel > div:first-child,\n    html[data-theme=\"dark\"] .timed-stage {\n      color: var(--foreground);\n      background: var(--background);\n    }\n\n    html[data-theme=\"dark\"] .panel,\n    html[data-theme=\"dark\"] #toc,\n    html[data-theme=\"dark\"] .toc-card,\n    html[data-theme=\"dark\"] .exercise-head,\n    html[data-theme=\"dark\"] .meta,\n    html[data-theme=\"dark\"] .ref-section summary,\n    html[data-theme=\"dark\"] details.edit-help {\n      color: #F9FAFB;\n      background: #0F172A;\n    }\n\n    html[data-theme=\"dark\"] .toc-link,\n    html[data-theme=\"dark\"] .toc-list a {\n      color: #F9FAFB;\n      background: #1E293B;\n    }\n\n    html[data-theme=\"dark\"] .toc-link:hover,\n    html[data-theme=\"dark\"] .toc-list a:hover {\n      color: #052E2B;\n      background: var(--secondary);\n    }\n\n    html[data-theme=\"dark\"] .hero-art { background: #0F172A; }\n\n    html[data-theme=\"dark\"] .card,\n    html[data-theme=\"dark\"] .quiz-card:nth-child(1) { background: var(--background); }\n\n    html[data-theme=\"dark\"] .card:nth-child(3n+2) { background: var(--blue-soft); }\n    html[data-theme=\"dark\"] .card:nth-child(3n+3) { background: var(--green-soft); }\n    html[data-theme=\"dark\"] .card:hover,\n    html[data-theme=\"dark\"] .quiz-card:hover { background: var(--amber-soft); }\n\n    html[data-theme=\"dark\"] .answer-input,\n    html[data-theme=\"dark\"] .timed-answer,\n    html[data-theme=\"dark\"] input,\n    html[data-theme=\"dark\"] select,\n    html[data-theme=\"dark\"] textarea,\n    html[data-theme=\"dark\"] .option-btn,\n    html[data-theme=\"dark\"] .mode-row,\n    html[data-theme=\"dark\"] .review-panel,\n    html[data-theme=\"dark\"] .review-row,\n    html[data-theme=\"dark\"] .empty,\n    html[data-theme=\"dark\"] .mode-btn,\n    html[data-theme=\"dark\"] .restart-top-btn {\n      color: var(--foreground);\n      background: var(--muted);\n    }\n\n    html[data-theme=\"dark\"] .answer-input:focus,\n    html[data-theme=\"dark\"] .timed-answer:focus,\n    html[data-theme=\"dark\"] input:focus,\n    html[data-theme=\"dark\"] select:focus,\n    html[data-theme=\"dark\"] textarea:focus {\n      color: var(--foreground);\n      background: var(--background);\n      border-color: var(--primary);\n    }\n\n    html[data-theme=\"dark\"] .answer-input:disabled,\n    html[data-theme=\"dark\"] .timed-answer:disabled {\n      color: #94A3B8;\n      background: var(--muted-strong);\n    }\n\n    html[data-theme=\"dark\"] .small,\n    html[data-theme=\"dark\"] .brand-copy span,\n    html[data-theme=\"dark\"] .card p,\n    html[data-theme=\"dark\"] .quiz-card p,\n    html[data-theme=\"dark\"] .guide-card p,\n    html[data-theme=\"dark\"] .note-card p,\n    html[data-theme=\"dark\"] .note-card li,\n    html[data-theme=\"dark\"] .mini-list,\n    html[data-theme=\"dark\"] .section-meta,\n    html[data-theme=\"dark\"] .status-row,\n    html[data-theme=\"dark\"] td,\n    html[data-theme=\"dark\"] .source-note,\n    html[data-theme=\"dark\"] .timed-placeholder,\n    html[data-theme=\"dark\"] .control-label {\n      color: #CBD5E1;\n    }\n\n    html[data-theme=\"dark\"] .section-title,\n    html[data-theme=\"dark\"] details.block > summary,\n    html[data-theme=\"dark\"] #quizSections > details:nth-child(3n+1) > summary,\n    html[data-theme=\"dark\"] #quizSections > details:nth-child(3n+3) > summary,\n    html[data-theme=\"dark\"] .section-card:nth-of-type(3n+2) .section-header,\n    html[data-theme=\"dark\"] .section-card:nth-of-type(3n+3) .section-header,\n    html[data-theme=\"dark\"] #sections .section:nth-child(3n+1) .section-header,\n    html[data-theme=\"dark\"] #sections .section:nth-child(3n+2) .section-header {\n      color: #111827;\n    }\n\n    html[data-theme=\"dark\"] #quizSections > details:nth-child(3n+2) > summary,\n    html[data-theme=\"dark\"] .section-card:nth-of-type(3n+4) .section-header,\n    html[data-theme=\"dark\"] #sections .section:nth-child(3n+3) .section-header {\n      color: #FFFFFF;\n    }\n\n    html[data-theme=\"dark\"] .score-pill,\n    html[data-theme=\"dark\"] .set-pill,\n    html[data-theme=\"dark\"] .btn-accent,\n    html[data-theme=\"dark\"] .btn-warning,\n    html[data-theme=\"dark\"] .secondary-btn,\n    html[data-theme=\"dark\"] .timer-box.danger,\n    html[data-theme=\"dark\"] .option-btn.correct-choice,\n    html[data-theme=\"dark\"] .option-btn.wrong-choice {\n      color: #111827;\n    }\n\n    html[data-theme=\"dark\"] .system-badge,\n    html[data-theme=\"dark\"] .theme-toggle { background: var(--muted); }\n\n    html[data-theme=\"dark\"] .button-link:hover,\n    html[data-theme=\"dark\"] .home-link:hover,\n    html[data-theme=\"dark\"] .back-top:hover,\n    html[data-theme=\"dark\"] .back-toc:hover {\n      color: #FFFFFF;\n      background: #0F172A;\n    }\n\n    html[data-theme=\"dark\"] th {\n      color: #F9FAFB;\n      background: var(--amber-soft);\n    }\n\n    html[data-theme=\"dark\"] pre {\n      color: #F9FAFB;\n      background: var(--amber-soft);\n    }\n\n    html[data-theme=\"dark\"] .collapse-btn,\n    html[data-theme=\"dark\"] .pill,\n    html[data-theme=\"dark\"] .chip,\n    html[data-theme=\"dark\"] .count-badge,\n    html[data-theme=\"dark\"] details.block > summary::after,\n    html[data-theme=\"dark\"] details.quiz-section > summary::after,\n    html[data-theme=\"dark\"] details.edit-help > summary::after {\n      color: #111827;\n      background: #F9FAFB;\n    }\n\n    html[data-theme=\"dark\"] .progress,\n    html[data-theme=\"dark\"] .progress-track { background: var(--border); }\n\n    @media (max-width: 680px) {\n      .theme-toggle { flex: 1; }\n    }\n  </style>\n<style id=\"palette-static-preview\">\nhtml { scroll-behavior: auto !important; }\nbody { overflow-y: auto !important; }\n.site-header { position: static !important; }\na, button, input, textarea, select { pointer-events: none !important; }\n* { animation: none !important; transition: none !important; }\n.exercise-card:hover, .home-link:hover, .back-to-toc:hover, .collapse-btn:hover, .btn:hover { transform: none !important; }\n</style></head>\n<body>\n<header class=\"site-header\">\n<div class=\"header-inner\">\n<div class=\"brand\">\n<div aria-hidden=\"true\" class=\"brand-mark\">01</div>\n<div class=\"brand-copy\">\n<strong>English Grammar &amp; IELTS Typing Lab</strong>\n<span>Grammar / IELTS / Review system</span>\n</div>\n</div>\n<div class=\"header-actions\">\n<a class=\"home-link\" href=\"#\">Index</a>\n<button aria-pressed=\"false\" class=\"theme-toggle\" disabled=\"\" id=\"themeToggle\" type=\"button\"><span aria-hidden=\"true\" class=\"theme-toggle__icon\">◐</span><span class=\"theme-toggle__label\">Dark mode</span></button>\n<span aria-label=\"Design mode\" class=\"system-badge\">Flat light</span>\n</div>\n</div>\n</header>\n<main>\n<section class=\"hero\" id=\"toc\">\n<div class=\"hero-card\">\n<span class=\"eyebrow\">01. Grammar / IELTS</span>\n<h1>Accuracy. Fluency. Review.</h1>\n<p>Work through one question at a time. Grammar exercises give immediate feedback and a running score. The IELTS fluency section can run for 45 seconds or in untimed mode, and completed exercises include answer review and targeted practice notes.</p>\n<div aria-label=\"Quiz features\" class=\"hero-chips\">\n<span class=\"chip\">100 typed questions</span>\n<span class=\"chip\">20 timed prompts</span>\n<span class=\"chip\">Instant feedback</span>\n<span class=\"chip\">Per-exercise restart</span>\n<span class=\"chip\">Light / dark system</span>\n</div>\n</div>\n<nav aria-labelledby=\"tocTitle\" class=\"toc-card\">\n<h2 id=\"tocTitle\">Table of contents</h2>\n<ol class=\"toc-list\">\n<li><a href=\"#\"><span><span class=\"toc-number\">01</span> Possessive nouns</span><span>→</span></a></li>\n<li><a href=\"#\"><span><span class=\"toc-number\">02</span> Using <em>whose</em></span><span>→</span></a></li>\n<li><a href=\"#\"><span><span class=\"toc-number\">03</span> Pronouns &amp; adjectives</span><span>→</span></a></li>\n<li><a href=\"#\"><span><span class=\"toc-number\">04</span> Timed reason + example</span><span>→</span></a></li>\n<li><a href=\"#\"><span><span class=\"toc-number\">05</span> Error correction</span><span>→</span></a></li>\n</ol>\n</nav>\n</section>\n<section class=\"section-card\" id=\"possessive-nouns\">\n<div class=\"section-header\">\n<div>\n<div class=\"section-kicker\">Fundamental grammar</div>\n<h2>Possessive Nouns</h2>\n</div>\n<button aria-expanded=\"true\" class=\"collapse-btn\" data-collapse=\"possessiveNounsContent\" disabled=\"\" type=\"button\">Collapse</button>\n</div>\n<div class=\"section-content\" id=\"possessiveNounsContent\">\n<div class=\"explanation\"><strong>Rule:</strong> Add <strong>'s</strong> to a singular noun (<em>the student's name</em>) and to an irregular plural noun that does not end in <em>-s</em> (<em>children's books</em>). For a regular plural already ending in <em>-s</em>, add only an apostrophe (<em>students' names</em>). For joint ownership, add <em>'s</em> to the final owner: <em>Ella and Ned's grandson</em>.</div>\n<div class=\"exercise-grid\" id=\"possessive-nouns-exercises\">\n<article class=\"exercise-card\">\n<div class=\"exercise-head\">\n<div><h3>Exercise 1: Form the possessive</h3><p>Type only the missing possessive word.</p></div>\n<div class=\"score-pill\">Score: 3 / 4</div>\n</div>\n<div class=\"progress-track\"><div class=\"progress-bar\" style=\"width:40%\"></div></div>\n<div class=\"question-box\">\n<div class=\"question-meta\">Question 4 of 10</div>\n<div class=\"question-text\">Our _____ room is downstairs. (son)</div>\n<input aria-label=\"Static answer example\" class=\"answer-input\" disabled=\"\" value=\"son's\"/>\n<div class=\"button-row\">\n<button class=\"btn btn-primary\" disabled=\"\" type=\"button\">Check answer</button>\n<button class=\"btn btn-accent\" disabled=\"\" type=\"button\">Next question</button>\n<button class=\"btn btn-secondary\" disabled=\"\" type=\"button\">Restart exercise</button>\n</div>\n<div class=\"feedback correct show\">✓ Correct.\nAnswer: son's\nWhy: A singular noun takes apostrophe + s.</div>\n</div>\n</article>\n<article class=\"exercise-card\">\n<div class=\"exercise-head\">\n<div><h3>Exercise 2: Family ownership</h3><p>Review a completed typed response.</p></div>\n<div class=\"score-pill\">Final: 8 / 10</div>\n</div>\n<div class=\"progress-track\"><div class=\"progress-bar\" style=\"width:100%\"></div></div>\n<div class=\"question-box\">\n<div class=\"question-meta\">Answer review 6 of 10</div>\n<div class=\"question-text\">Ella and _____ grandson is William. (Ned)</div>\n<div class=\"review-answer-grid\">\n<div><span>Your answer</span>Ella and Ned's</div>\n<div><span>Model answer</span>Ned's</div>\n</div>\n<div class=\"feedback incorrect show\">✗ Review this item.\nFor joint ownership, only the final owner takes 's.</div>\n<div class=\"review-nav\">\n<button class=\"btn btn-secondary\" disabled=\"\">Previous answer</button>\n<button class=\"btn btn-secondary\" disabled=\"\">Next answer</button>\n</div>\n</div>\n</article></div>\n</div>\n</section>\n<section class=\"section-card\" id=\"using-whose\">\n<div class=\"section-header\">\n<div>\n<div class=\"section-kicker\">Fundamental grammar</div>\n<h2>Using <em>Whose</em></h2>\n</div>\n<button aria-expanded=\"true\" class=\"collapse-btn\" data-collapse=\"whoseContent\" disabled=\"\" type=\"button\">Collapse</button>\n</div>\n<div class=\"section-content\" id=\"whoseContent\">\n<div class=\"explanation\"><strong>Whose</strong> asks about possession: <em>Whose book is this?</em> <strong>Who's</strong> is a contraction of <em>who is</em> or <em>who has</em>: <em>Who's taking the picture?</em> They sound the same, so use the sentence meaning to choose the correct spelling.</div>\n<div class=\"exercise-grid\" id=\"whose-exercises\">\n<article class=\"exercise-card\">\n<div class=\"exercise-head\">\n<div><h3>Exercise 1: Whose or Who's?</h3><p>Choose the form that completes the sentence.</p></div>\n<div class=\"score-pill\">Score: 5 / 6</div>\n</div>\n<div class=\"progress-track\"><div class=\"progress-bar\" style=\"width:60%\"></div></div>\n<div class=\"question-box\">\n<div class=\"question-meta\">Question 6 of 10</div>\n<div class=\"question-text\">_____ house did you stay at?</div>\n<div class=\"option-list\">\n<button class=\"option-btn correct-choice\" disabled=\"\">Whose</button>\n<button class=\"option-btn\" disabled=\"\">Who's</button>\n<button class=\"option-btn\" disabled=\"\">Who</button>\n</div>\n<div class=\"feedback correct show\">✓ Correct.\nWhose asks who owns the house.</div>\n</div>\n</article></div>\n</div>\n</section>\n<section class=\"section-card\" id=\"possessive-pronouns\">\n<div class=\"section-header\">\n<div>\n<div class=\"section-kicker\">Fundamental grammar</div>\n<h2>Possessive Pronouns and Adjectives</h2>\n</div>\n<button aria-expanded=\"true\" class=\"collapse-btn\" data-collapse=\"pronounsContent\" disabled=\"\" type=\"button\">Collapse</button>\n</div>\n<div class=\"section-content\" id=\"pronounsContent\">\n<div class=\"explanation\"><strong>Possessive adjectives</strong> come before nouns: <em>my pen, her bag, their room</em>. <strong>Possessive pronouns</strong> stand alone: <em>mine, hers, theirs</em>. Remember: <em>its</em> shows possession, while <em>it's</em> means <em>it is</em>; <em>their</em> shows possession, <em>there</em> indicates place, and <em>they're</em> means <em>they are</em>.</div>\n<div class=\"exercise-grid\" id=\"pronoun-exercises\">\n<article class=\"exercise-card\">\n<div class=\"exercise-head\">\n<div><h3>Exercise 1: Adjective or pronoun?</h3><p>Compare selected, correct, and incorrect answer states.</p></div>\n<div class=\"score-pill\">Score: 6 / 8</div>\n</div>\n<div class=\"progress-track\"><div class=\"progress-bar\" style=\"width:80%\"></div></div>\n<div class=\"question-box\">\n<div class=\"question-meta\">Question 8 of 10</div>\n<div class=\"question-text\">Is this _____ pen or _____?</div>\n<div class=\"option-list\">\n<button class=\"option-btn selected\" disabled=\"\">mine, your</button>\n<button class=\"option-btn correct-choice\" disabled=\"\">my, yours</button>\n<button class=\"option-btn wrong-choice\" disabled=\"\">mine, yours</button>\n</div>\n<div class=\"feedback incorrect show\">✗ Incorrect.\nModel answer: my, yours\nWhy: My modifies pen; yours stands alone.</div>\n<div class=\"practice-summary\"><strong>Practice focus</strong><ul><li>Use possessive adjectives before nouns.</li><li>Use possessive pronouns without a following noun.</li></ul></div>\n</div>\n</article></div>\n</div>\n</section>\n<section class=\"section-card\" id=\"timed-fluency\">\n<div class=\"section-header\">\n<div>\n<div class=\"section-kicker\">IELTS</div>\n<h2>45-Second Reason + Example</h2>\n</div>\n<button aria-expanded=\"true\" class=\"collapse-btn\" data-collapse=\"timedContent\" disabled=\"\" type=\"button\">Collapse</button>\n</div>\n<div class=\"section-content\" id=\"timedContent\">\n<div class=\"explanation\">Use a simple IELTS speaking shape: <strong>answer → reason → example/detail → final comment</strong>. Choose the 45-second challenge or untimed mode. The response locks when time ends or when you select <em>Finish and lock</em>.</div>\n<div class=\"exercise-card\">\n<div class=\"exercise-head\">\n<div>\n<h3>Timed Fluency Round</h3>\n<p>Prompts rotate without repeating until all 20 have been used.</p>\n</div>\n<div class=\"score-pill\" id=\"promptCounter\">Prompt 1 of 20</div>\n</div>\n<div class=\"timer-panel\">\n<div>\n<div class=\"timed-prompt\" id=\"timedPrompt\">Do you prefer studying alone or with friends? Give a reason and an example.</div>\n<p class=\"timed-instructions\" id=\"timedStatus\">Static sample: answer → reason → example/detail → final comment.</p>\n<label class=\"sr-only\" for=\"timedAnswer\">Your timed response</label>\n<textarea class=\"timed-answer\" disabled=\"\" id=\"timedAnswer\">I prefer studying with one friend because we can explain difficult ideas to each other. For example, before a test we compare notes and correct mistakes together.</textarea>\n<div class=\"mode-row\">\n<label class=\"mode-option\" for=\"untimedFluency\"><input disabled=\"\" id=\"untimedFluency\" type=\"checkbox\"/> Untimed mode</label>\n<span>Choose before starting</span>\n</div>\n<div class=\"button-row\">\n<button class=\"btn btn-accent\" disabled=\"\" id=\"startTimer\" type=\"button\">Start 45 seconds</button>\n<button class=\"btn btn-primary\" disabled=\"\" hidden=\"\" id=\"finishTimer\" type=\"button\">Finish and lock</button>\n<button class=\"btn btn-secondary\" disabled=\"\" id=\"restartTimer\" type=\"button\">Different prompt</button>\n</div>\n</div>\n<div aria-live=\"polite\" class=\"timer-display\">\n<strong id=\"timerValue\">28</strong>\n<span id=\"timerLabel\">seconds remaining</span>\n</div>\n</div>\n</div>\n</div>\n</section>\n<section class=\"section-card\" id=\"error-correction\">\n<div class=\"section-header\">\n<div>\n<div class=\"section-kicker\">IELTS</div>\n<h2>Error Correction and Answer Upgrade</h2>\n</div>\n<button aria-expanded=\"true\" class=\"collapse-btn\" data-collapse=\"errorContent\" disabled=\"\" type=\"button\">Collapse</button>\n</div>\n<div class=\"section-content\" id=\"errorContent\">\n<div class=\"explanation\">Rewrite each weak sentence in correct, natural English. The checker accepts common valid variations, but language can have more than one correct answer. Feedback gives a model correction, the main grammar point, and an optional IELTS-style upgrade with stronger vocabulary or detail.</div>\n<div class=\"exercise-grid\" id=\"error-exercises\">\n<article class=\"exercise-card\">\n<div class=\"exercise-head\">\n<div><h3>Exercise 1: Error correction</h3><p>Rewrite the complete sentence correctly.</p></div>\n<div class=\"score-pill\">Score: 4 / 5</div>\n</div>\n<div class=\"progress-track\"><div class=\"progress-bar\" style=\"width:50%\"></div></div>\n<div class=\"question-box\">\n<div class=\"question-meta\">Question 5 of 10</div>\n<div class=\"question-text\">Phone is important because many thing.</div>\n<textarea aria-label=\"Static correction example\" class=\"timed-answer\" disabled=\"\">A phone is important because it can do many things.</textarea>\n<div class=\"button-row\">\n<button class=\"btn btn-primary\" disabled=\"\">Check answer</button>\n<button class=\"btn btn-warning\" disabled=\"\">Show model</button>\n<button class=\"btn btn-secondary\" disabled=\"\">Restart exercise</button>\n</div>\n<div class=\"feedback correct show\">✓ Good correction.\nModel correction: A phone is important because it can do many things.\nFocus: Use an article, a complete clause, and a plural count noun.\nIELTS upgrade: A smartphone is useful because it supports communication, study, and daily planning.</div>\n</div>\n</article></div>\n</div>\n</section>\n<p class=\"source-note\">Practice content is adapted from the attached grammar and IELTS worksheets, with additional original questions for extended practice.</p>\n</main>\n<a aria-label=\"Back to table of contents\" class=\"back-to-toc\" href=\"#\">↑ Back to TOC</a>\n\n\n</body>\n</html>";
+
+    const defaults = [
+      { name: '--background', value: '#FFFFFF', locked: false },
+      { name: '--foreground', value: '#111827', locked: false },
+      { name: '--primary', value: '#3B82F6', locked: false },
+      { name: '--secondary', value: '#10B981', locked: false },
+      { name: '--accent', value: '#F59E0B', locked: false },
+      { name: '--muted', value: '#F3F4F6', locked: false },
+      { name: '--border', value: '#E5E7EB', locked: false },
+      { name: '--subtle', value: '#4B5563', locked: false }
+    ];
+
+    let colors = defaults.map(item => ({ ...item }));
+    let outputMode = 'css';
+
+    const swatches = document.getElementById('swatches');
+    const exportOutput = document.getElementById('exportOutput');
+    const importInput = document.getElementById('importInput');
+    const importStatus = document.getElementById('importStatus');
+    const copyStatus = document.getElementById('copyStatus');
+    const previewFrame = document.getElementById('previewFrame');
+    const previewWrap = document.getElementById('previewWrap');
+
+    function normalizeHex(value) {
+      const raw = String(value || '').trim().replace(/^#/, '');
+      if (/^[0-9a-f]{3}$/i.test(raw)) return '#' + raw.split('').map(char => char + char).join('').toUpperCase();
+      if (/^[0-9a-f]{6}$/i.test(raw)) return '#' + raw.toUpperCase();
+      return null;
+    }
+
+    function sanitizeName(name, index) {
+      let cleaned = String(name || '').trim();
+      if (!cleaned.startsWith('--')) cleaned = '--' + cleaned;
+      cleaned = '--' + cleaned.slice(2).toLowerCase().replace(/[^a-z0-9-_]/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '');
+      return cleaned === '--' ? `--color-${index + 1}` : cleaned;
+    }
+
+    function hexToRgb(hex) {
+      const normalized = normalizeHex(hex) || '#000000';
+      return {
+        r: parseInt(normalized.slice(1, 3), 16),
+        g: parseInt(normalized.slice(3, 5), 16),
+        b: parseInt(normalized.slice(5, 7), 16)
+      };
+    }
+
+    function luminance(hex) {
+      const { r, g, b } = hexToRgb(hex);
+      const values = [r, g, b].map(value => {
+        const channel = value / 255;
+        return channel <= .03928 ? channel / 12.92 : Math.pow((channel + .055) / 1.055, 2.4);
+      });
+      return .2126 * values[0] + .7152 * values[1] + .0722 * values[2];
+    }
+
+    function readableText(hex) {
+      return luminance(hex) > .42 ? '#111111' : '#FFFFFF';
+    }
+
+    function mix(hexA, hexB, amount) {
+      const a = hexToRgb(hexA);
+      const b = hexToRgb(hexB);
+      const channel = key => Math.round(a[key] + (b[key] - a[key]) * amount).toString(16).padStart(2, '0');
+      return `#${channel('r')}${channel('g')}${channel('b')}`.toUpperCase();
+    }
+
+    function randomHex() {
+      const hue = Math.floor(Math.random() * 360);
+      const saturation = 45 + Math.floor(Math.random() * 46);
+      const lightness = 28 + Math.floor(Math.random() * 55);
+      return hslToHex(hue, saturation, lightness);
+    }
+
+    function hslToHex(h, s, l) {
+      s /= 100;
+      l /= 100;
+      const c = (1 - Math.abs(2 * l - 1)) * s;
+      const x = c * (1 - Math.abs((h / 60) % 2 - 1));
+      const m = l - c / 2;
+      let r = 0, g = 0, b = 0;
+      if (h < 60) [r, g, b] = [c, x, 0];
+      else if (h < 120) [r, g, b] = [x, c, 0];
+      else if (h < 180) [r, g, b] = [0, c, x];
+      else if (h < 240) [r, g, b] = [0, x, c];
+      else if (h < 300) [r, g, b] = [x, 0, c];
+      else [r, g, b] = [c, 0, x];
+      return '#' + [r, g, b].map(value => Math.round((value + m) * 255).toString(16).padStart(2, '0')).join('').toUpperCase();
+    }
+
+    function renderSwatches() {
+      swatches.style.setProperty('--count', colors.length);
+      swatches.replaceChildren();
+
+      colors.forEach((color, index) => {
+        const swatch = document.createElement('article');
+        swatch.className = 'swatch';
+        swatch.style.background = color.value;
+        swatch.style.color = readableText(color.value);
+        swatch.style.setProperty('--swatch', color.value);
+
+        const tools = document.createElement('div');
+        tools.className = 'swatch-tools';
+
+        const randomButton = document.createElement('button');
+        randomButton.type = 'button';
+        randomButton.className = 'swatch-button';
+        randomButton.title = 'Randomize this color';
+        randomButton.setAttribute('aria-label', `Randomize ${color.name}`);
+        randomButton.textContent = '↻';
+        randomButton.addEventListener('click', () => {
+          colors[index].value = randomHex();
+          render();
+        });
+
+        const lockLabel = document.createElement('label');
+        lockLabel.className = 'lock-label';
+        lockLabel.title = color.locked ? 'Unlock color' : 'Lock color';
+        const lockInput = document.createElement('input');
+        lockInput.type = 'checkbox';
+        lockInput.checked = color.locked;
+        lockInput.setAttribute('aria-label', `Lock ${color.name}`);
+        lockInput.addEventListener('change', event => {
+          colors[index].locked = event.target.checked;
+          renderSwatches();
+        });
+        const lockIcon = document.createElement('span');
+        lockIcon.setAttribute('aria-hidden', 'true');
+        lockIcon.textContent = color.locked ? '●' : '○';
+        lockLabel.append(lockInput, lockIcon);
+
+        const removeButton = document.createElement('button');
+        removeButton.type = 'button';
+        removeButton.className = 'swatch-button';
+        removeButton.title = 'Remove color';
+        removeButton.setAttribute('aria-label', `Remove ${color.name}`);
+        removeButton.textContent = '×';
+        removeButton.disabled = colors.length <= 2;
+        removeButton.addEventListener('click', () => {
+          if (colors.length <= 2) return;
+          colors.splice(index, 1);
+          render();
+        });
+
+        tools.append(randomButton, lockLabel, removeButton);
+
+        const content = document.createElement('div');
+        content.className = 'swatch-content';
+
+        const nameInput = document.createElement('input');
+        nameInput.className = 'variable-input';
+        nameInput.value = color.name;
+        nameInput.setAttribute('aria-label', `Variable name for ${color.value}`);
+        nameInput.addEventListener('change', event => {
+          colors[index].name = sanitizeName(event.target.value, index);
+          render();
+        });
+
+        const row = document.createElement('div');
+        row.className = 'hex-row';
+        const hexInput = document.createElement('input');
+        hexInput.className = 'hex-input';
+        hexInput.value = color.value;
+        hexInput.setAttribute('aria-label', `Hex value for ${color.name}`);
+        hexInput.addEventListener('change', event => {
+          const valid = normalizeHex(event.target.value);
+          if (valid) colors[index].value = valid;
+          render();
+        });
+
+        const picker = document.createElement('input');
+        picker.type = 'color';
+        picker.className = 'color-picker';
+        picker.value = color.value;
+        picker.setAttribute('aria-label', `Choose ${color.name}`);
+        picker.addEventListener('input', event => {
+          colors[index].value = normalizeHex(event.target.value);
+          render();
+        });
+
+        row.append(hexInput, picker);
+        content.append(nameInput, row);
+        swatch.append(tools, content);
+        swatches.append(swatch);
+      });
+    }
+
+    function parsePalette(text) {
+      const source = String(text || '').trim();
+      if (!source) throw new Error('Paste CSS variables or a color array first.');
+
+      const variableRegex = /(--[a-zA-Z0-9_-]+)\s*:\s*(#[0-9a-fA-F]{3,8})\s*;?/g;
+      const variables = [];
+      let match;
+      while ((match = variableRegex.exec(source))) {
+        const normalized = normalizeHex(match[2].slice(0, 7));
+        if (normalized) variables.push({ name: sanitizeName(match[1], variables.length), value: normalized, locked: false });
+      }
+      if (variables.length) return variables;
+
+      const hexMatches = source.match(/#[0-9a-fA-F]{3}(?:[0-9a-fA-F]{3})?/g) || [];
+      const values = hexMatches.map(normalizeHex).filter(Boolean);
+      if (!values.length) throw new Error('No valid 3- or 6-digit hex colors were found.');
+      return values.map((value, index) => ({ name: `--color-${index + 1}`, value, locked: false }));
+    }
+
+    function exportText() {
+      if (outputMode === 'array') return JSON.stringify(colors.map(color => color.value.toLowerCase()));
+      return ':root {\n' + colors.map(color => `  ${color.name}: ${color.value};`).join('\n') + '\n}';
+    }
+
+    function findByTerms(terms) {
+      const found = colors.find(item => terms.some(term => item.name.toLowerCase().includes(term)));
+      return found ? found.value : null;
+    }
+
+    function deriveTheme() {
+      const values = colors.map(color => color.value);
+      const sorted = [...values].sort((a, b) => luminance(a) - luminance(b));
+      const darkest = sorted[0] || '#111827';
+      const lightest = sorted[sorted.length - 1] || '#FFFFFF';
+      const isMostlyDark = values.reduce((sum, value) => sum + luminance(value), 0) / values.length < .25;
+
+      const background = findByTerms(['background', 'page']) || (isMostlyDark ? darkest : lightest);
+      const surface = findByTerms(['surface']) || (isMostlyDark ? mix(darkest, '#FFFFFF', .08) : lightest);
+      const foreground = findByTerms(['foreground', 'text', 'ink']) || (luminance(surface) > .42 ? darkest : lightest);
+      const primary = findByTerms(['primary']) || values[Math.min(3, values.length - 1)] || '#3B82F6';
+      const secondary = findByTerms(['secondary']) || values[Math.min(1, values.length - 1)] || primary;
+      const accent = findByTerms(['accent']) || values[Math.min(4, values.length - 1)] || secondary;
+      const muted = findByTerms(['muted', 'surface-alt']) || mix(surface, foreground, isMostlyDark ? .12 : .07);
+      const border = findByTerms(['border']) || mix(surface, foreground, isMostlyDark ? .22 : .13);
+      const subtle = findByTerms(['subtle']) || mix(foreground, surface, .30);
+
+      const primaryHover = findByTerms(['primary-hover']) || mix(primary, foreground, .14);
+      const secondarySoft = findByTerms(['secondary-soft']) || mix(secondary, background, .82);
+      const accentSoft = findByTerms(['accent-soft']) || mix(accent, background, .82);
+      const mutedStrong = findByTerms(['muted-strong']) || mix(muted, foreground, isMostlyDark ? .18 : .10);
+      const blueSoft = findByTerms(['blue-soft']) || mix(primary, background, .82);
+      const mantle = findByTerms(['mantle', 'deep-surface']) || mix(foreground, background, .10);
+
+      return {
+        background, surface, foreground, primary, primaryHover, secondary, secondarySoft,
+        accent, accentSoft, muted, mutedStrong, blueSoft, border, subtle, mantle,
+        page: mix(background, foreground, isMostlyDark ? .04 : .07),
+        heroText: readableText(primary),
+        primaryText: readableText(primary),
+        secondaryText: readableText(secondary),
+        accentText: readableText(accent),
+        inverseText: readableText(foreground)
+      };
+    }
+
+    function buildPreviewHtml() {
+      const theme = deriveTheme();
+      const previewScheme = luminance(theme.background) < .25 ? 'dark' : 'light';
+      const overrides = `
+        <style id="palette-studio-overrides">
+          :root, html[data-theme="dark"] {
+            --background: ${theme.background} !important;
+            --foreground: ${theme.foreground} !important;
+            --primary: ${theme.primary} !important;
+            --primary-hover: ${theme.primaryHover} !important;
+            --secondary: ${theme.secondary} !important;
+            --secondary-soft: ${theme.secondarySoft} !important;
+            --accent: ${theme.accent} !important;
+            --accent-soft: ${theme.accentSoft} !important;
+            --muted: ${theme.muted} !important;
+            --muted-strong: ${theme.mutedStrong} !important;
+            --blue-soft: ${theme.blueSoft} !important;
+            --border: ${theme.border} !important;
+            --subtle: ${theme.subtle} !important;
+            --mantle: ${theme.mantle} !important;
+            --bg: var(--background) !important;
+            --fg: var(--foreground) !important;
+            --line: var(--border) !important;
+            --field: var(--muted) !important;
+            --text: var(--foreground) !important;
+            --subtext1: var(--subtle) !important;
+            --subtext0: var(--subtle) !important;
+            --surface0: var(--muted) !important;
+            --surface1: var(--muted-strong) !important;
+            --surface2: var(--border) !important;
+            --base: var(--background) !important;
+            --crust: var(--foreground) !important;
+            --blue: var(--primary) !important;
+            --mauve: var(--primary) !important;
+            --red: var(--accent) !important;
+            --green: var(--secondary) !important;
+            --peach: var(--accent) !important;
+            --yellow: var(--accent) !important;
+            color-scheme: ${previewScheme} !important;
+          }
+
+          html, body { background: ${theme.page} !important; }
+          body { color: var(--foreground) !important; }
+          .site-header, main, .section-card, .section-content { background: var(--background) !important; }
+          .section-card:nth-of-type(even) .section-content { background: var(--muted) !important; }
+          .exercise-card, .timer-panel > div:first-child, .timed-stage,
+          .review-answer-grid > div { background: var(--background) !important; }
+          .toc-card, .exercise-head { background: var(--foreground) !important; color: ${theme.inverseText} !important; }
+          .toc-list a { color: ${theme.inverseText} !important; background: ${mix(theme.foreground, theme.background, .14)} !important; }
+          .hero, .brand-mark, .home-link, .btn-primary, .explanation::before,
+          .timer-display, .timer-box { color: ${theme.primaryText} !important; }
+          .hero p { color: ${mix(theme.primaryText, theme.primary, .18)} !important; }
+          .chip, .collapse-btn { color: ${theme.foreground} !important; background: ${theme.background} !important; }
+          .section-card:nth-of-type(3n+2) .section-header { color: ${theme.secondaryText} !important; }
+          .section-card:nth-of-type(3n+3) .section-header { color: ${theme.accentText} !important; }
+          .section-card:nth-of-type(3n+4) .section-header { color: ${theme.primaryText} !important; }
+          .score-pill, .set-pill, .btn-warning, .option-btn.wrong-choice,
+          .timer-box.danger { color: ${theme.accentText} !important; }
+          .btn-accent, .option-btn.correct-choice { color: ${theme.secondaryText} !important; }
+          .exercise-head p { color: ${mix(theme.inverseText, theme.foreground, .20)} !important; }
+          .brand-copy span, .source-note, .timed-placeholder { color: var(--subtle) !important; }
+          a, button, input, textarea, select { pointer-events: none !important; }
+          * { animation: none !important; transition: none !important; }
+        </style>`;
+      return QUIZ_STATIC_HTML.replace('</head>', overrides + '</head>');
+    }
+
+    function renderOutput() {
+      exportOutput.value = exportText();
+    }
+
+    function renderPreview() {
+      previewFrame.srcdoc = buildPreviewHtml();
+    }
+
+    function render() {
+      renderSwatches();
+      renderOutput();
+      renderPreview();
+    }
+
+    function randomizeUnlocked() {
+      colors = colors.map(color => color.locked ? color : { ...color, value: randomHex() });
+      render();
+    }
+
+    document.getElementById('randomizeAll').addEventListener('click', randomizeUnlocked);
+    document.getElementById('shuffleFromPreview').addEventListener('click', randomizeUnlocked);
+
+    document.getElementById('addColor').addEventListener('click', () => {
+      colors.push({ name: `--color-${colors.length + 1}`, value: randomHex(), locked: false });
+      render();
+      swatches.scrollTo({ left: swatches.scrollWidth, behavior: 'smooth' });
+    });
+
+    document.getElementById('importButton').addEventListener('click', () => {
+      try {
+        colors = parsePalette(importInput.value);
+        importStatus.textContent = `Imported ${colors.length} color${colors.length === 1 ? '' : 's'}.`;
+        importStatus.className = 'status';
+        render();
+      } catch (error) {
+        importStatus.textContent = error.message;
+        importStatus.className = 'status error';
+      }
+    });
+
+    document.getElementById('sampleButton').addEventListener('click', () => {
+      importInput.value = '["#606c38", "#283618", "#fefae0", "#dda15e", "#bc6c25"]';
+      colors = parsePalette(importInput.value);
+      importStatus.textContent = 'Loaded the sample palette.';
+      importStatus.className = 'status';
+      render();
+    });
+
+    document.getElementById('resetButton').addEventListener('click', () => {
+      colors = defaults.map(item => ({ ...item }));
+      importStatus.textContent = 'Restored the uploaded design-system colors.';
+      importStatus.className = 'status';
+      render();
+    });
+
+    document.querySelectorAll('.output-tab').forEach(button => {
+      button.addEventListener('click', () => {
+        outputMode = button.dataset.output;
+        document.querySelectorAll('.output-tab').forEach(item => item.classList.toggle('active', item === button));
+        renderOutput();
+      });
+    });
+
+    document.getElementById('copyButton').addEventListener('click', async () => {
+      try {
+        await navigator.clipboard.writeText(exportOutput.value);
+        copyStatus.textContent = 'Copied to clipboard.';
+      } catch (_) {
+        exportOutput.focus();
+        exportOutput.select();
+        const successful = document.execCommand('copy');
+        copyStatus.textContent = successful ? 'Copied to clipboard.' : 'Select the text and copy it manually.';
+      }
+    });
+
+    document.querySelectorAll('.tab').forEach(button => {
+      button.addEventListener('click', () => {
+        const view = button.dataset.view;
+        document.querySelectorAll('.tab').forEach(item => item.setAttribute('aria-selected', String(item === button)));
+        document.querySelectorAll('[data-view-panel]').forEach(panel => panel.classList.toggle('active', panel.dataset.viewPanel === view));
+        if (view === 'website') renderPreview();
+      });
+    });
+
+    document.querySelectorAll('.device-button').forEach(button => {
+      button.addEventListener('click', () => {
+        const mobile = button.dataset.device === 'mobile';
+        previewWrap.classList.toggle('mobile', mobile);
+        document.querySelectorAll('.device-button').forEach(item => item.setAttribute('aria-pressed', String(item === button)));
+      });
+    });
+
+    document.addEventListener('keydown', event => {
+      const typing = ['INPUT', 'TEXTAREA'].includes(document.activeElement.tagName);
+      if (event.code === 'Space' && !typing) {
+        event.preventDefault();
+        randomizeUnlocked();
+      }
+    });
+
+    render();
+  </script>
+</body>
+</html>
