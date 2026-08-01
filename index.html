@@ -91,12 +91,99 @@
     .palette-layout {
       min-height: calc(100vh - 73px);
       display: grid;
-      grid-template-rows: minmax(420px, 1fr) auto;
+      grid-template-rows: auto minmax(420px, 1fr) auto;
     }
+
+    .theme-toolbar {
+      min-height: 66px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 10px 20px;
+      border-bottom: 1px solid var(--line);
+      background: var(--panel);
+    }
+    .theme-toolbar-main { display: flex; align-items: center; gap: 14px; min-width: 0; }
+    .theme-tabs {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 4px;
+      border-radius: 999px;
+      background: var(--control);
+    }
+    .theme-tab, .preview-theme-button {
+      min-height: 36px;
+      padding: 0 14px;
+      border: 0;
+      border-radius: 999px;
+      background: transparent;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 800;
+      cursor: pointer;
+    }
+    .theme-tab[aria-selected="true"], .preview-theme-button[aria-pressed="true"] {
+      color: white;
+      background: var(--ink);
+    }
+    .theme-help { color: var(--muted); font-size: 12px; line-height: 1.4; }
+    .sync-button {
+      min-height: 42px;
+      display: inline-flex;
+      align-items: center;
+      gap: 9px;
+      padding: 0 14px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: var(--panel);
+      font-size: 12px;
+      font-weight: 800;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    .sync-dot { width: 9px; height: 9px; border-radius: 50%; background: #9ca3af; }
+    .sync-button[aria-pressed="true"] .sync-dot { background: #10b981; }
+    .sync-button[aria-pressed="false"] { color: var(--muted); }
+
+    .preview-theme-group {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 3px;
+      border-radius: 999px;
+      background: var(--control);
+    }
+
+    .sync-dialog {
+      width: min(460px, calc(100% - 32px));
+      padding: 0;
+      border: 0;
+      border-radius: 18px;
+      color: var(--ink);
+      background: var(--panel);
+      box-shadow: 0 24px 80px rgba(15, 23, 42, .24);
+    }
+    .sync-dialog::backdrop { background: rgba(15, 23, 42, .52); backdrop-filter: blur(3px); }
+    .sync-dialog form { padding: 24px; }
+    .sync-dialog h2 { margin: 0 0 10px; font-size: 20px; letter-spacing: -.03em; }
+    .sync-dialog p { margin: 0; color: var(--muted); font-size: 14px; line-height: 1.6; }
+    .dialog-warning {
+      margin-top: 16px;
+      padding: 13px 14px;
+      border-left: 4px solid #d97706;
+      border-radius: 8px;
+      background: #fff7ed;
+      color: #9a3412;
+      font-size: 13px;
+      line-height: 1.5;
+    }
+    .dialog-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 22px; }
 
     .swatches {
       display: grid;
-      grid-template-columns: repeat(var(--count, 5), minmax(150px, 1fr));
+      grid-template-columns: repeat(var(--count, 5), minmax(190px, 1fr));
       min-height: 440px;
       overflow-x: auto;
       scroll-snap-type: x proximity;
@@ -104,7 +191,7 @@
 
     .swatch {
       position: relative;
-      min-width: 150px;
+      min-width: 190px;
       min-height: 440px;
       display: flex;
       flex-direction: column;
@@ -279,6 +366,13 @@
       .preview-bar { align-items: flex-start; flex-direction: column; }
     }
 
+    @media (max-width: 760px) {
+      .theme-toolbar { align-items: flex-start; flex-direction: column; }
+      .theme-toolbar-main { width: 100%; align-items: flex-start; flex-direction: column; }
+      .sync-button { width: 100%; justify-content: center; }
+      .theme-help { max-width: 60ch; }
+    }
+
     @media (prefers-reduced-motion: reduce) {
       * { transition: none !important; scroll-behavior: auto !important; }
     }
@@ -309,6 +403,19 @@
     <main class="workspace">
       <section class="view active" id="paletteView" data-view-panel="palette">
         <div class="palette-layout">
+          <div class="theme-toolbar">
+            <div class="theme-toolbar-main">
+              <div class="theme-tabs" role="tablist" aria-label="Palette theme">
+                <button class="theme-tab" type="button" role="tab" aria-selected="true" data-theme-tab="light">☀ Light</button>
+                <button class="theme-tab" type="button" role="tab" aria-selected="false" data-theme-tab="dark">◐ Dark</button>
+              </div>
+              <div class="theme-help" id="themeHelp">Editing Light. Dark updates automatically from every change.</div>
+            </div>
+            <button class="sync-button" id="syncToggle" type="button" aria-pressed="true">
+              <span class="sync-dot" aria-hidden="true"></span>
+              <span id="syncLabel">Synced</span>
+            </button>
+          </div>
           <div class="swatches" id="swatches" aria-live="polite"></div>
 
           <div class="editor-panel">
@@ -359,7 +466,11 @@
               <strong>Static preview · July 22 Grammar & IELTS Lab</strong>
               <span>Scripts and links are disabled; palette changes update live.</span>
             </div>
-            <div class="preview-tools" aria-label="Preview width">
+            <div class="preview-tools" aria-label="Preview controls">
+              <div class="preview-theme-group" aria-label="Preview theme">
+                <button class="preview-theme-button" type="button" aria-pressed="true" data-preview-theme="light">Light</button>
+                <button class="preview-theme-button" type="button" aria-pressed="false" data-preview-theme="dark">Dark</button>
+              </div>
               <button class="device-button" type="button" aria-pressed="true" data-device="desktop">Desktop</button>
               <button class="device-button" type="button" aria-pressed="false" data-device="mobile">Mobile</button>
               <button class="button" id="shuffleFromPreview" type="button">Randomize palette</button>
@@ -373,12 +484,24 @@
         </div>
       </section>
     </main>
+
+    <dialog class="sync-dialog" id="syncDialog" aria-labelledby="syncDialogTitle">
+      <form method="dialog">
+        <h2 id="syncDialogTitle">Turn automatic sync back on?</h2>
+        <p id="syncDialogDescription">The active palette will become the source for both modes.</p>
+        <div class="dialog-warning" id="syncDialogWarning">The opposite palette will be regenerated and its independent edits will be overwritten. This cannot be undone.</div>
+        <div class="dialog-actions">
+          <button class="button" value="cancel" type="submit">Keep unsynced</button>
+          <button class="button primary" id="confirmSync" value="confirm" type="submit">Overwrite and sync</button>
+        </div>
+      </form>
+    </dialog>
   </div>
 
   <script>
     const QUIZ_STATIC_HTML = "<!DOCTYPE html>\n\n<html data-static-preview=\"true\" lang=\"en\">\n<head>\n\n<meta charset=\"utf-8\"/>\n<meta content=\"width=device-width, initial-scale=1.0\" name=\"viewport\"/>\n<meta content=\"Interactive English grammar and IELTS typing practice quiz\" name=\"description\"/>\n<title>English Grammar &amp; IELTS Typing Lab</title>\n<style>\n\n    :root {\n      color-scheme: light;\n      --background:#FFFFFF;\n      --foreground:#111827;\n      --primary:#3B82F6;\n      --primary-hover:#2563EB;\n      --secondary:#10B981;\n      --secondary-soft:#D1FAE5;\n      --accent:#F59E0B;\n      --accent-soft:#FEF3C7;\n      --muted:#F3F4F6;\n      --muted-strong:#E5E7EB;\n      --blue-soft:#DBEAFE;\n      --border:#E5E7EB;\n      --radius-md:6px;\n      --radius-lg:8px;\n      --font:'Outfit',sans-serif;\n      --transition:all 200ms ease;\n\n      /* Compatibility aliases used by the existing quiz markup and scripts. */\n      --bg:var(--background);\n      --fg:var(--foreground);\n      --line:var(--border);\n      --field:var(--muted);\n      --subtle:#4B5563;\n      --correct-bg:var(--secondary);\n      --correct-fg:var(--foreground);\n      --text:var(--foreground);\n      --subtext1:#4B5563;\n      --subtext0:#4B5563;\n      --surface0:var(--muted);\n      --surface1:var(--muted-strong);\n      --surface2:var(--border);\n      --base:var(--background);\n      --mantle:var(--muted);\n      --crust:var(--foreground);\n      --blue:var(--primary);\n      --mauve:var(--primary);\n      --red:var(--accent);\n      --green:var(--secondary);\n      --peach:var(--accent);\n      --yellow:var(--accent);\n    }\n\n    * { box-sizing:border-box; }\n    html { scroll-behavior:smooth; }\n    [hidden] { display:none !important; }\n\n    body {\n      margin:0;\n      min-height:100vh;\n      color:var(--foreground);\n      background:var(--muted);\n      font-family:var(--font);\n      font-size:16px;\n      line-height:1.6;\n    }\n\n    button,input,textarea,select { font:inherit; }\n    button { cursor:pointer; }\n    a { color:inherit; }\n    h1,h2,h3,p { margin-top:0; }\n    h1,h2,h3 {\n      line-height:1;\n      letter-spacing:-.02em;\n    }\n\n    .site-header {\n      position:sticky;\n      top:0;\n      z-index:40;\n      background:var(--background);\n    }\n\n    .header-inner {\n      width:min(1280px,calc(100% - 32px));\n      min-height:76px;\n      margin:0 auto;\n      display:grid;\n      grid-template-columns:1fr auto;\n      align-items:center;\n      gap:24px;\n    }\n\n    .brand {\n      min-width:0;\n      display:flex;\n      align-items:center;\n      gap:14px;\n    }\n\n    .brand-mark {\n      width:48px;\n      height:48px;\n      flex:0 0 auto;\n      display:grid;\n      place-items:center;\n      color:#FFFFFF;\n      background:var(--primary);\n      border-radius:var(--radius-lg);\n      font-weight:800;\n      letter-spacing:-.04em;\n    }\n\n    .brand-copy strong {\n      display:block;\n      font-size:clamp(.95rem,1.8vw,1.2rem);\n      font-weight:800;\n      letter-spacing:-.02em;\n    }\n\n    .brand-copy span {\n      display:block;\n      color:#6B7280;\n      font-size:.74rem;\n      font-weight:600;\n      letter-spacing:.12em;\n      text-transform:uppercase;\n    }\n\n    .header-actions {\n      display:flex;\n      align-items:center;\n      gap:10px;\n    }\n\n    .home-link,.system-badge {\n      min-height:44px;\n      display:inline-flex;\n      align-items:center;\n      justify-content:center;\n      padding:0 16px;\n      border-radius:var(--radius-md);\n      font-size:.78rem;\n      font-weight:700;\n      letter-spacing:.1em;\n      text-decoration:none;\n      text-transform:uppercase;\n      transition:var(--transition);\n      white-space:nowrap;\n    }\n\n    .home-link {\n      color:#FFFFFF;\n      background:var(--primary);\n    }\n\n    .home-link:hover {\n      background:var(--primary-hover);\n      transform:scale(1.05);\n    }\n\n    .system-badge {\n      color:var(--foreground);\n      background:var(--muted);\n    }\n\n    main {\n      width:min(1280px,calc(100% - 32px));\n      margin:0 auto 64px;\n      overflow:hidden;\n      background:var(--background);\n      border-radius:var(--radius-lg);\n    }\n\n    .hero {\n      position:relative;\n      display:grid;\n      grid-template-columns:7fr 5fr;\n      min-height:570px;\n      overflow:hidden;\n      background:var(--primary);\n    }\n\n    .hero::before,\n    .hero::after {\n      content:\"\";\n      position:absolute;\n      pointer-events:none;\n      opacity:.1;\n    }\n\n    .hero::before {\n      width:360px;\n      height:360px;\n      right:28%;\n      top:-150px;\n      border-radius:50%;\n      background:#FFFFFF;\n    }\n\n    .hero::after {\n      width:260px;\n      height:260px;\n      left:-90px;\n      bottom:-110px;\n      background:#FFFFFF;\n      transform:rotate(18deg);\n    }\n\n    .hero-card,.toc-card,.section-card,.exercise-card {\n      box-shadow:none;\n    }\n\n    .hero-card {\n      position:relative;\n      z-index:1;\n      min-height:570px;\n      display:flex;\n      flex-direction:column;\n      justify-content:center;\n      padding:clamp(36px,6vw,80px);\n      color:#FFFFFF;\n      background:transparent;\n    }\n\n    .eyebrow,.section-kicker {\n      display:block;\n      margin-bottom:18px;\n      font-size:.78rem;\n      font-weight:700;\n      letter-spacing:.18em;\n      text-transform:uppercase;\n    }\n\n    .eyebrow { color:var(--accent-soft); }\n\n    h1 {\n      max-width:10ch;\n      margin:.15rem 0 1.6rem;\n      font-size:clamp(3.4rem,8vw,7.5rem);\n      font-weight:800;\n      line-height:.86;\n    }\n\n    .hero p {\n      max-width:58ch;\n      margin-bottom:0;\n      color:#EFF6FF;\n      font-size:clamp(1rem,1.5vw,1.22rem);\n    }\n\n    .hero-chips {\n      display:flex;\n      flex-wrap:wrap;\n      gap:8px;\n      margin-top:30px;\n    }\n\n    .chip {\n      padding:9px 12px;\n      color:var(--foreground);\n      background:#FFFFFF;\n      border-radius:999px;\n      font-size:.72rem;\n      font-weight:700;\n      letter-spacing:.06em;\n      text-transform:uppercase;\n    }\n\n    .toc-card {\n      position:relative;\n      z-index:2;\n      align-self:center;\n      margin:clamp(24px,5vw,56px);\n      padding:clamp(26px,4vw,42px);\n      color:#FFFFFF;\n      background:var(--foreground);\n      border-radius:var(--radius-lg);\n    }\n\n    .toc-card h2 {\n      margin-bottom:24px;\n      color:var(--secondary);\n      font-size:.82rem;\n      font-weight:700;\n      letter-spacing:.16em;\n      text-transform:uppercase;\n    }\n\n    .toc-list {\n      list-style:none;\n      padding:0;\n      margin:0;\n      display:grid;\n      gap:8px;\n    }\n\n    .toc-list a {\n      min-height:52px;\n      display:flex;\n      align-items:center;\n      justify-content:space-between;\n      gap:16px;\n      padding:11px 14px;\n      color:#FFFFFF;\n      background:#1F2937;\n      border-radius:var(--radius-md);\n      font-weight:600;\n      text-decoration:none;\n      transition:var(--transition);\n    }\n\n    .toc-list a:hover {\n      color:var(--foreground);\n      background:var(--secondary);\n      transform:translateX(6px);\n    }\n\n    .toc-number {\n      margin-right:8px;\n      color:var(--accent);\n      font-weight:800;\n    }\n\n    .toc-list a:hover .toc-number { color:var(--foreground); }\n\n    .section-card {\n      margin:0;\n      scroll-margin-top:90px;\n      background:var(--background);\n    }\n\n    .section-header {\n      min-height:150px;\n      display:flex;\n      align-items:center;\n      justify-content:space-between;\n      gap:28px;\n      padding:clamp(30px,5vw,64px);\n      background:var(--muted);\n    }\n\n    .section-card:nth-of-type(3n+2) .section-header {\n      color:var(--foreground);\n      background:var(--secondary);\n    }\n\n    .section-card:nth-of-type(3n+3) .section-header {\n      color:var(--foreground);\n      background:var(--accent);\n    }\n\n    .section-card:nth-of-type(3n+4) .section-header {\n      color:#FFFFFF;\n      background:var(--primary);\n    }\n\n    .section-kicker {\n      margin-bottom:12px;\n      color:inherit;\n      opacity:.8;\n    }\n\n    .section-header h2 {\n      margin:.15rem 0 0;\n      max-width:18ch;\n      font-size:clamp(2.2rem,5vw,4.8rem);\n      font-weight:800;\n    }\n\n    .collapse-btn,.btn {\n      min-height:56px;\n      padding:0 20px;\n      border:0;\n      border-radius:var(--radius-md);\n      font-size:.78rem;\n      font-weight:700;\n      letter-spacing:.08em;\n      text-transform:uppercase;\n      transition:var(--transition);\n    }\n\n    .collapse-btn {\n      color:var(--foreground);\n      background:#FFFFFF;\n      border:4px solid currentColor;\n    }\n\n    .collapse-btn:hover,.btn:hover:not(:disabled) {\n      transform:scale(1.05);\n    }\n\n    .collapse-btn:hover {\n      color:#FFFFFF;\n      background:var(--foreground);\n      border-color:var(--foreground);\n    }\n\n    .section-content {\n      padding:clamp(26px,5vw,64px);\n      background:var(--background);\n    }\n\n    .section-card:nth-of-type(even) .section-content {\n      background:var(--muted);\n    }\n\n    .explanation {\n      position:relative;\n      margin-bottom:28px;\n      padding:clamp(22px,3vw,32px);\n      color:var(--foreground);\n      background:var(--blue-soft);\n      border-radius:var(--radius-lg);\n    }\n\n    .explanation::before {\n      content:\"RULE\";\n      display:inline-block;\n      margin-bottom:12px;\n      padding:6px 9px;\n      color:#FFFFFF;\n      background:var(--primary);\n      border-radius:999px;\n      font-size:.68rem;\n      font-weight:700;\n      letter-spacing:.12em;\n    }\n\n    .exercise-grid {\n      display:grid;\n      gap:28px;\n    }\n\n    .exercise-card {\n      overflow:hidden;\n      background:#FFFFFF;\n      border-radius:var(--radius-lg);\n      transition:var(--transition);\n    }\n\n    .section-content:not([style]) .exercise-card:hover {\n      transform:scale(1.01);\n    }\n\n    .exercise-head {\n      display:flex;\n      justify-content:space-between;\n      align-items:stretch;\n      gap:0;\n      color:#FFFFFF;\n      background:var(--foreground);\n    }\n\n    .exercise-head > div:first-child {\n      padding:26px;\n    }\n\n    .exercise-head h3 {\n      margin-bottom:8px;\n      font-size:clamp(1.45rem,3vw,2.3rem);\n      font-weight:800;\n    }\n\n    .exercise-head p {\n      margin:0;\n      color:#D1D5DB;\n      font-size:.95rem;\n    }\n\n    .score-pill,.set-pill {\n      min-width:158px;\n      display:grid;\n      place-items:center;\n      align-self:stretch;\n      padding:18px;\n      color:var(--foreground);\n      background:var(--accent);\n      font-size:.78rem;\n      font-weight:700;\n      letter-spacing:.08em;\n      text-align:center;\n      text-transform:uppercase;\n    }\n\n    .progress-track {\n      height:12px;\n      overflow:hidden;\n      background:var(--muted-strong);\n    }\n\n    .progress-bar,.progress-fill {\n      width:0;\n      height:100%;\n      background:var(--secondary);\n      transition:width 200ms ease;\n    }\n\n    .question-box,.timed-stage {\n      padding:clamp(24px,4vw,38px);\n    }\n\n    .question-meta {\n      margin-bottom:12px;\n      color:var(--primary);\n      font-size:.75rem;\n      font-weight:700;\n      letter-spacing:.14em;\n      text-transform:uppercase;\n    }\n\n    .question-text,.timed-prompt {\n      margin:.1rem 0 24px;\n      color:var(--foreground);\n      font-size:clamp(1.25rem,2.5vw,2rem);\n      font-weight:700;\n      line-height:1.2;\n      white-space:pre-line;\n    }\n\n    .answer-input,.timed-answer,input,select,textarea {\n      width:100%;\n      color:var(--foreground);\n      background:var(--muted);\n      border:2px solid transparent;\n      border-radius:var(--radius-md);\n      outline:0;\n      transition:var(--transition);\n    }\n\n    .answer-input,input,select {\n      min-height:56px;\n      padding:0 16px;\n    }\n\n    .timed-answer,textarea {\n      min-height:160px;\n      padding:16px;\n      resize:vertical;\n    }\n\n    .answer-input:focus,.timed-answer:focus,input:focus,select:focus,textarea:focus {\n      background:#FFFFFF;\n      border-color:var(--primary);\n    }\n\n    .timed-answer:disabled,.answer-input:disabled {\n      opacity:1;\n      cursor:not-allowed;\n      color:#6B7280;\n      background:var(--muted-strong);\n    }\n\n    .option-list {\n      display:grid;\n      gap:10px;\n    }\n\n    .option-btn {\n      width:100%;\n      min-height:58px;\n      padding:14px 16px;\n      color:var(--foreground);\n      background:var(--muted);\n      border:0;\n      border-radius:var(--radius-md);\n      text-align:left;\n      font-weight:600;\n      transition:var(--transition);\n    }\n\n    .option-btn:hover:not(:disabled) {\n      color:#FFFFFF;\n      background:var(--primary);\n      transform:translateX(5px);\n    }\n\n    .option-btn.selected {\n      color:#FFFFFF;\n      background:var(--primary);\n    }\n\n    .option-btn.correct-choice {\n      color:var(--foreground);\n      background:var(--secondary);\n    }\n\n    .option-btn.wrong-choice {\n      color:var(--foreground);\n      background:var(--accent);\n    }\n\n    .option-btn:disabled {\n      cursor:not-allowed;\n      opacity:1;\n    }\n\n    .button-row {\n      display:flex;\n      flex-wrap:wrap;\n      gap:10px;\n      margin-top:22px;\n    }\n\n    .btn-primary {\n      color:#FFFFFF;\n      background:var(--primary);\n    }\n\n    .btn-primary:hover:not(:disabled) { background:var(--primary-hover); }\n\n    .btn-accent {\n      color:var(--foreground);\n      background:var(--secondary);\n    }\n\n    .btn-warning {\n      color:var(--foreground);\n      background:var(--accent);\n    }\n\n    .btn-secondary {\n      color:var(--foreground);\n      background:var(--muted);\n    }\n\n    .btn-secondary:hover:not(:disabled) { background:var(--muted-strong); }\n\n    .btn:disabled {\n      opacity:.45;\n      cursor:not-allowed;\n      transform:none;\n    }\n\n    .feedback,.practice-summary,.review-panel {\n      margin-top:20px;\n      padding:20px;\n      border:0;\n      border-radius:var(--radius-lg);\n      white-space:pre-line;\n    }\n\n    .feedback { display:none; }\n    .feedback.show { display:block; }\n    .feedback.correct {\n      color:var(--foreground);\n      background:var(--secondary-soft);\n      border-left:8px solid var(--secondary);\n    }\n\n    .feedback.incorrect {\n      color:var(--foreground);\n      background:var(--accent-soft);\n      border-left:8px solid var(--accent);\n    }\n\n    .feedback.neutral {\n      color:var(--foreground);\n      background:var(--muted);\n      border-left:8px solid var(--primary);\n    }\n\n    .practice-summary {\n      color:var(--foreground);\n      background:var(--blue-soft);\n    }\n\n    .practice-summary strong,.practice-summary h4 {\n      display:block;\n      margin:0 0 10px;\n      font-size:.82rem;\n      font-weight:700;\n      letter-spacing:.12em;\n      text-transform:uppercase;\n    }\n\n    .practice-summary ul {\n      margin:10px 0 0;\n      padding-left:22px;\n    }\n\n    .review-nav {\n      display:flex;\n      flex-wrap:wrap;\n      gap:10px;\n      margin-top:16px;\n    }\n\n    .review-panel {\n      background:var(--muted);\n    }\n\n    .review-answer-grid {\n      display:grid;\n      grid-template-columns:1fr 1fr;\n      gap:12px;\n    }\n\n    .review-answer-grid > div {\n      padding:18px;\n      background:#FFFFFF;\n      border-radius:var(--radius-md);\n    }\n\n    .review-answer-grid span {\n      display:block;\n      margin-bottom:8px;\n      color:var(--primary);\n      font-size:.72rem;\n      font-weight:700;\n      letter-spacing:.12em;\n      text-transform:uppercase;\n    }\n\n    .timer-panel,.timer-shell {\n      display:grid;\n      grid-template-columns:minmax(0,1fr) 220px;\n      gap:0;\n      align-items:stretch;\n    }\n\n    .timer-panel > div:first-child,.timed-stage {\n      min-height:280px;\n      padding:clamp(24px,4vw,38px);\n      background:#FFFFFF;\n    }\n\n    .timer-display,.timer-box {\n      min-height:230px;\n      display:grid;\n      place-items:center;\n      padding:22px;\n      color:#FFFFFF;\n      background:var(--primary);\n      text-align:center;\n    }\n\n    .timer-display strong,.timer-box strong {\n      display:block;\n      color:#FFFFFF;\n      font-size:clamp(3rem,7vw,5.2rem);\n      line-height:1;\n      letter-spacing:-.05em;\n    }\n\n    .timer-display span,.timer-box span,.timed-instructions {\n      color:inherit;\n      font-size:.8rem;\n      font-weight:600;\n      letter-spacing:.08em;\n      text-transform:uppercase;\n    }\n\n    .timer-box.danger {\n      color:var(--foreground);\n      background:var(--accent);\n    }\n\n    .timer-box.danger strong,.timer-box.danger span {\n      color:var(--foreground);\n    }\n\n    .mode-row {\n      display:flex;\n      align-items:center;\n      justify-content:space-between;\n      gap:16px;\n      margin:18px 0 0;\n      padding:14px 16px;\n      color:var(--foreground);\n      background:var(--muted);\n      border-radius:var(--radius-md);\n    }\n\n    .mode-option {\n      display:flex;\n      align-items:center;\n      gap:10px;\n      margin:0;\n      font-size:.78rem;\n      font-weight:700;\n      letter-spacing:.08em;\n      text-transform:uppercase;\n    }\n\n    .mode-option input {\n      width:22px;\n      min-height:22px;\n      height:22px;\n      margin:0;\n      padding:0;\n      accent-color:var(--primary);\n    }\n\n    .round-summary {\n      padding:24px;\n      color:var(--foreground);\n      background:var(--secondary-soft);\n      border-radius:var(--radius-lg);\n    }\n\n    .round-summary h3 {\n      font-size:clamp(1.8rem,4vw,3rem);\n      font-weight:800;\n    }\n\n    .timed-placeholder { color:#6B7280; }\n\n    .source-note {\n      margin:0;\n      padding:24px clamp(24px,4vw,56px);\n      color:#6B7280;\n      background:var(--muted);\n      font-size:.8rem;\n      font-weight:500;\n    }\n\n    .back-to-toc {\n      position:fixed;\n      right:18px;\n      bottom:18px;\n      z-index:30;\n      min-height:48px;\n      display:flex;\n      align-items:center;\n      padding:0 16px;\n      color:#FFFFFF;\n      background:var(--foreground);\n      border-radius:var(--radius-md);\n      font-size:.74rem;\n      font-weight:700;\n      letter-spacing:.08em;\n      text-decoration:none;\n      text-transform:uppercase;\n      transition:var(--transition);\n    }\n\n    .back-to-toc:hover {\n      background:var(--primary);\n      transform:scale(1.05);\n    }\n\n    .sr-only {\n      position:absolute !important;\n      width:1px !important;\n      height:1px !important;\n      padding:0 !important;\n      margin:-1px !important;\n      overflow:hidden !important;\n      clip:rect(0,0,0,0) !important;\n      white-space:nowrap !important;\n      border:0 !important;\n    }\n\n    button:focus-visible,a:focus-visible,input:focus-visible,textarea:focus-visible,select:focus-visible {\n      outline:2px solid var(--primary);\n      outline-offset:3px;\n    }\n\n    @media (max-width:900px) {\n      .hero { grid-template-columns:1fr; }\n      .hero-card { min-height:500px; }\n      .toc-card { margin-top:0; }\n      .timer-panel,.timer-shell { grid-template-columns:1fr; }\n      .timer-display,.timer-box { min-height:150px; }\n    }\n\n    @media (max-width:680px) {\n      .header-inner {\n        width:min(100% - 24px,1280px);\n        grid-template-columns:1fr;\n        padding:12px 0;\n        gap:10px;\n      }\n\n      .header-actions { justify-content:space-between; }\n      .home-link,.system-badge { flex:1; }\n      main { width:100%; margin-bottom:0; border-radius:0; }\n      .hero-card,.toc-card,.section-header,.section-content { padding-left:22px; padding-right:22px; }\n      .toc-card { margin:0 22px 28px; }\n      .section-header {\n        align-items:flex-start;\n        flex-direction:column;\n      }\n\n      .collapse-btn { width:100%; }\n      .exercise-head { flex-direction:column; }\n      .exercise-head > div:first-child { padding:22px; }\n      .score-pill,.set-pill {\n        min-width:0;\n        width:100%;\n        min-height:52px;\n      }\n\n      .button-row { display:grid; }\n      .btn { width:100%; }\n      .review-answer-grid { grid-template-columns:1fr; }\n      .brand-copy span { display:none; }\n      .back-to-toc { right:8px; bottom:8px; }\n      .mode-row { align-items:flex-start; flex-direction:column; }\n    }\n\n    @media (prefers-reduced-motion:reduce) {\n      *,*::before,*::after {\n        scroll-behavior:auto !important;\n        transition:none !important;\n        transform:none !important;\n      }\n    }\n  </style>\n<style id=\"flat-dark-mode\">\n    .theme-toggle {\n      min-height: 44px;\n      display: inline-flex !important;\n      align-items: center;\n      justify-content: center;\n      gap: 8px;\n      padding: 0 15px;\n      color: var(--foreground);\n      background: var(--muted);\n      border: 0;\n      border-radius: var(--radius-md);\n      font: inherit;\n      font-size: .76rem;\n      font-weight: 700;\n      letter-spacing: .08em;\n      text-transform: uppercase;\n      white-space: nowrap;\n      cursor: pointer;\n      transition: var(--transition);\n    }\n\n    .theme-toggle:hover {\n      color: #FFFFFF;\n      background: var(--primary);\n      transform: scale(1.05);\n    }\n\n    .theme-toggle__icon {\n      width: 1.2em;\n      display: inline-grid;\n      place-items: center;\n      font-size: 1rem;\n      line-height: 1;\n    }\n\n    html[data-theme=\"dark\"] {\n      color-scheme: dark;\n      --background: #111827;\n      --foreground: #F9FAFB;\n      --primary: #60A5FA;\n      --primary-hover: #3B82F6;\n      --secondary: #34D399;\n      --accent: #FBBF24;\n      --muted: #1F2937;\n      --muted-strong: #374151;\n      --border: #374151;\n      --blue-soft: #172554;\n      --green-soft: #052E2B;\n      --amber-soft: #451A03;\n      --secondary-soft: #052E2B;\n      --accent-soft: #451A03;\n      --bg: var(--background);\n      --fg: var(--foreground);\n      --line: var(--border);\n      --field: var(--muted);\n      --subtle: #CBD5E1;\n      --correct-bg: var(--secondary);\n      --correct-fg: #052E2B;\n      --text: var(--foreground);\n      --subtext1: #CBD5E1;\n      --subtext0: #94A3B8;\n      --surface0: var(--muted);\n      --surface1: var(--muted-strong);\n      --surface2: var(--border);\n      --base: var(--background);\n      --mantle: #0F172A;\n      --crust: #020617;\n      --blue: var(--primary);\n      --mauve: var(--primary);\n      --red: #FB7185;\n      --green: var(--secondary);\n      --peach: #FB923C;\n      --yellow: var(--accent);\n    }\n\n    html[data-theme=\"dark\"] body { background: #0B1220; }\n\n    html[data-theme=\"dark\"] .site-header,\n    html[data-theme=\"dark\"] body > .shell > header,\n    html[data-theme=\"dark\"] main,\n    html[data-theme=\"dark\"] .shell,\n    html[data-theme=\"dark\"] .section,\n    html[data-theme=\"dark\"] .section-card,\n    html[data-theme=\"dark\"] .block,\n    html[data-theme=\"dark\"] .quiz-section,\n    html[data-theme=\"dark\"] .section-content,\n    html[data-theme=\"dark\"] .block-inner,\n    html[data-theme=\"dark\"] .quiz-body,\n    html[data-theme=\"dark\"] .card-grid,\n    html[data-theme=\"dark\"] .guide-card,\n    html[data-theme=\"dark\"] .note-card,\n    html[data-theme=\"dark\"] .control-card,\n    html[data-theme=\"dark\"] .quiz-card,\n    html[data-theme=\"dark\"] .exercise-card,\n    html[data-theme=\"dark\"] .ref-section,\n    html[data-theme=\"dark\"] .review-answer-grid > div,\n    html[data-theme=\"dark\"] .timer-panel > div:first-child,\n    html[data-theme=\"dark\"] .timed-stage {\n      color: var(--foreground);\n      background: var(--background);\n    }\n\n    html[data-theme=\"dark\"] .panel,\n    html[data-theme=\"dark\"] #toc,\n    html[data-theme=\"dark\"] .toc-card,\n    html[data-theme=\"dark\"] .exercise-head,\n    html[data-theme=\"dark\"] .meta,\n    html[data-theme=\"dark\"] .ref-section summary,\n    html[data-theme=\"dark\"] details.edit-help {\n      color: #F9FAFB;\n      background: #0F172A;\n    }\n\n    html[data-theme=\"dark\"] .toc-link,\n    html[data-theme=\"dark\"] .toc-list a {\n      color: #F9FAFB;\n      background: #1E293B;\n    }\n\n    html[data-theme=\"dark\"] .toc-link:hover,\n    html[data-theme=\"dark\"] .toc-list a:hover {\n      color: #052E2B;\n      background: var(--secondary);\n    }\n\n    html[data-theme=\"dark\"] .hero-art { background: #0F172A; }\n\n    html[data-theme=\"dark\"] .card,\n    html[data-theme=\"dark\"] .quiz-card:nth-child(1) { background: var(--background); }\n\n    html[data-theme=\"dark\"] .card:nth-child(3n+2) { background: var(--blue-soft); }\n    html[data-theme=\"dark\"] .card:nth-child(3n+3) { background: var(--green-soft); }\n    html[data-theme=\"dark\"] .card:hover,\n    html[data-theme=\"dark\"] .quiz-card:hover { background: var(--amber-soft); }\n\n    html[data-theme=\"dark\"] .answer-input,\n    html[data-theme=\"dark\"] .timed-answer,\n    html[data-theme=\"dark\"] input,\n    html[data-theme=\"dark\"] select,\n    html[data-theme=\"dark\"] textarea,\n    html[data-theme=\"dark\"] .option-btn,\n    html[data-theme=\"dark\"] .mode-row,\n    html[data-theme=\"dark\"] .review-panel,\n    html[data-theme=\"dark\"] .review-row,\n    html[data-theme=\"dark\"] .empty,\n    html[data-theme=\"dark\"] .mode-btn,\n    html[data-theme=\"dark\"] .restart-top-btn {\n      color: var(--foreground);\n      background: var(--muted);\n    }\n\n    html[data-theme=\"dark\"] .answer-input:focus,\n    html[data-theme=\"dark\"] .timed-answer:focus,\n    html[data-theme=\"dark\"] input:focus,\n    html[data-theme=\"dark\"] select:focus,\n    html[data-theme=\"dark\"] textarea:focus {\n      color: var(--foreground);\n      background: var(--background);\n      border-color: var(--primary);\n    }\n\n    html[data-theme=\"dark\"] .answer-input:disabled,\n    html[data-theme=\"dark\"] .timed-answer:disabled {\n      color: #94A3B8;\n      background: var(--muted-strong);\n    }\n\n    html[data-theme=\"dark\"] .small,\n    html[data-theme=\"dark\"] .brand-copy span,\n    html[data-theme=\"dark\"] .card p,\n    html[data-theme=\"dark\"] .quiz-card p,\n    html[data-theme=\"dark\"] .guide-card p,\n    html[data-theme=\"dark\"] .note-card p,\n    html[data-theme=\"dark\"] .note-card li,\n    html[data-theme=\"dark\"] .mini-list,\n    html[data-theme=\"dark\"] .section-meta,\n    html[data-theme=\"dark\"] .status-row,\n    html[data-theme=\"dark\"] td,\n    html[data-theme=\"dark\"] .source-note,\n    html[data-theme=\"dark\"] .timed-placeholder,\n    html[data-theme=\"dark\"] .control-label {\n      color: #CBD5E1;\n    }\n\n    html[data-theme=\"dark\"] .section-title,\n    html[data-theme=\"dark\"] details.block > summary,\n    html[data-theme=\"dark\"] #quizSections > details:nth-child(3n+1) > summary,\n    html[data-theme=\"dark\"] #quizSections > details:nth-child(3n+3) > summary,\n    html[data-theme=\"dark\"] .section-card:nth-of-type(3n+2) .section-header,\n    html[data-theme=\"dark\"] .section-card:nth-of-type(3n+3) .section-header,\n    html[data-theme=\"dark\"] #sections .section:nth-child(3n+1) .section-header,\n    html[data-theme=\"dark\"] #sections .section:nth-child(3n+2) .section-header {\n      color: #111827;\n    }\n\n    html[data-theme=\"dark\"] #quizSections > details:nth-child(3n+2) > summary,\n    html[data-theme=\"dark\"] .section-card:nth-of-type(3n+4) .section-header,\n    html[data-theme=\"dark\"] #sections .section:nth-child(3n+3) .section-header {\n      color: #FFFFFF;\n    }\n\n    html[data-theme=\"dark\"] .score-pill,\n    html[data-theme=\"dark\"] .set-pill,\n    html[data-theme=\"dark\"] .btn-accent,\n    html[data-theme=\"dark\"] .btn-warning,\n    html[data-theme=\"dark\"] .secondary-btn,\n    html[data-theme=\"dark\"] .timer-box.danger,\n    html[data-theme=\"dark\"] .option-btn.correct-choice,\n    html[data-theme=\"dark\"] .option-btn.wrong-choice {\n      color: #111827;\n    }\n\n    html[data-theme=\"dark\"] .system-badge,\n    html[data-theme=\"dark\"] .theme-toggle { background: var(--muted); }\n\n    html[data-theme=\"dark\"] .button-link:hover,\n    html[data-theme=\"dark\"] .home-link:hover,\n    html[data-theme=\"dark\"] .back-top:hover,\n    html[data-theme=\"dark\"] .back-toc:hover {\n      color: #FFFFFF;\n      background: #0F172A;\n    }\n\n    html[data-theme=\"dark\"] th {\n      color: #F9FAFB;\n      background: var(--amber-soft);\n    }\n\n    html[data-theme=\"dark\"] pre {\n      color: #F9FAFB;\n      background: var(--amber-soft);\n    }\n\n    html[data-theme=\"dark\"] .collapse-btn,\n    html[data-theme=\"dark\"] .pill,\n    html[data-theme=\"dark\"] .chip,\n    html[data-theme=\"dark\"] .count-badge,\n    html[data-theme=\"dark\"] details.block > summary::after,\n    html[data-theme=\"dark\"] details.quiz-section > summary::after,\n    html[data-theme=\"dark\"] details.edit-help > summary::after {\n      color: #111827;\n      background: #F9FAFB;\n    }\n\n    html[data-theme=\"dark\"] .progress,\n    html[data-theme=\"dark\"] .progress-track { background: var(--border); }\n\n    @media (max-width: 680px) {\n      .theme-toggle { flex: 1; }\n    }\n  </style>\n<style id=\"palette-static-preview\">\nhtml { scroll-behavior: auto !important; }\nbody { overflow-y: auto !important; }\n.site-header { position: static !important; }\na, button, input, textarea, select { pointer-events: none !important; }\n* { animation: none !important; transition: none !important; }\n.exercise-card:hover, .home-link:hover, .back-to-toc:hover, .collapse-btn:hover, .btn:hover { transform: none !important; }\n</style></head>\n<body>\n<header class=\"site-header\">\n<div class=\"header-inner\">\n<div class=\"brand\">\n<div aria-hidden=\"true\" class=\"brand-mark\">01</div>\n<div class=\"brand-copy\">\n<strong>English Grammar &amp; IELTS Typing Lab</strong>\n<span>Grammar / IELTS / Review system</span>\n</div>\n</div>\n<div class=\"header-actions\">\n<a class=\"home-link\" href=\"#\">Index</a>\n<button aria-pressed=\"false\" class=\"theme-toggle\" disabled=\"\" id=\"themeToggle\" type=\"button\"><span aria-hidden=\"true\" class=\"theme-toggle__icon\">◐</span><span class=\"theme-toggle__label\">Dark mode</span></button>\n<span aria-label=\"Design mode\" class=\"system-badge\">Flat light</span>\n</div>\n</div>\n</header>\n<main>\n<section class=\"hero\" id=\"toc\">\n<div class=\"hero-card\">\n<span class=\"eyebrow\">01. Grammar / IELTS</span>\n<h1>Accuracy. Fluency. Review.</h1>\n<p>Work through one question at a time. Grammar exercises give immediate feedback and a running score. The IELTS fluency section can run for 45 seconds or in untimed mode, and completed exercises include answer review and targeted practice notes.</p>\n<div aria-label=\"Quiz features\" class=\"hero-chips\">\n<span class=\"chip\">100 typed questions</span>\n<span class=\"chip\">20 timed prompts</span>\n<span class=\"chip\">Instant feedback</span>\n<span class=\"chip\">Per-exercise restart</span>\n<span class=\"chip\">Light / dark system</span>\n</div>\n</div>\n<nav aria-labelledby=\"tocTitle\" class=\"toc-card\">\n<h2 id=\"tocTitle\">Table of contents</h2>\n<ol class=\"toc-list\">\n<li><a href=\"#\"><span><span class=\"toc-number\">01</span> Possessive nouns</span><span>→</span></a></li>\n<li><a href=\"#\"><span><span class=\"toc-number\">02</span> Using <em>whose</em></span><span>→</span></a></li>\n<li><a href=\"#\"><span><span class=\"toc-number\">03</span> Pronouns &amp; adjectives</span><span>→</span></a></li>\n<li><a href=\"#\"><span><span class=\"toc-number\">04</span> Timed reason + example</span><span>→</span></a></li>\n<li><a href=\"#\"><span><span class=\"toc-number\">05</span> Error correction</span><span>→</span></a></li>\n</ol>\n</nav>\n</section>\n<section class=\"section-card\" id=\"possessive-nouns\">\n<div class=\"section-header\">\n<div>\n<div class=\"section-kicker\">Fundamental grammar</div>\n<h2>Possessive Nouns</h2>\n</div>\n<button aria-expanded=\"true\" class=\"collapse-btn\" data-collapse=\"possessiveNounsContent\" disabled=\"\" type=\"button\">Collapse</button>\n</div>\n<div class=\"section-content\" id=\"possessiveNounsContent\">\n<div class=\"explanation\"><strong>Rule:</strong> Add <strong>'s</strong> to a singular noun (<em>the student's name</em>) and to an irregular plural noun that does not end in <em>-s</em> (<em>children's books</em>). For a regular plural already ending in <em>-s</em>, add only an apostrophe (<em>students' names</em>). For joint ownership, add <em>'s</em> to the final owner: <em>Ella and Ned's grandson</em>.</div>\n<div class=\"exercise-grid\" id=\"possessive-nouns-exercises\">\n<article class=\"exercise-card\">\n<div class=\"exercise-head\">\n<div><h3>Exercise 1: Form the possessive</h3><p>Type only the missing possessive word.</p></div>\n<div class=\"score-pill\">Score: 3 / 4</div>\n</div>\n<div class=\"progress-track\"><div class=\"progress-bar\" style=\"width:40%\"></div></div>\n<div class=\"question-box\">\n<div class=\"question-meta\">Question 4 of 10</div>\n<div class=\"question-text\">Our _____ room is downstairs. (son)</div>\n<input aria-label=\"Static answer example\" class=\"answer-input\" disabled=\"\" value=\"son's\"/>\n<div class=\"button-row\">\n<button class=\"btn btn-primary\" disabled=\"\" type=\"button\">Check answer</button>\n<button class=\"btn btn-accent\" disabled=\"\" type=\"button\">Next question</button>\n<button class=\"btn btn-secondary\" disabled=\"\" type=\"button\">Restart exercise</button>\n</div>\n<div class=\"feedback correct show\">✓ Correct.\nAnswer: son's\nWhy: A singular noun takes apostrophe + s.</div>\n</div>\n</article>\n<article class=\"exercise-card\">\n<div class=\"exercise-head\">\n<div><h3>Exercise 2: Family ownership</h3><p>Review a completed typed response.</p></div>\n<div class=\"score-pill\">Final: 8 / 10</div>\n</div>\n<div class=\"progress-track\"><div class=\"progress-bar\" style=\"width:100%\"></div></div>\n<div class=\"question-box\">\n<div class=\"question-meta\">Answer review 6 of 10</div>\n<div class=\"question-text\">Ella and _____ grandson is William. (Ned)</div>\n<div class=\"review-answer-grid\">\n<div><span>Your answer</span>Ella and Ned's</div>\n<div><span>Model answer</span>Ned's</div>\n</div>\n<div class=\"feedback incorrect show\">✗ Review this item.\nFor joint ownership, only the final owner takes 's.</div>\n<div class=\"review-nav\">\n<button class=\"btn btn-secondary\" disabled=\"\">Previous answer</button>\n<button class=\"btn btn-secondary\" disabled=\"\">Next answer</button>\n</div>\n</div>\n</article></div>\n</div>\n</section>\n<section class=\"section-card\" id=\"using-whose\">\n<div class=\"section-header\">\n<div>\n<div class=\"section-kicker\">Fundamental grammar</div>\n<h2>Using <em>Whose</em></h2>\n</div>\n<button aria-expanded=\"true\" class=\"collapse-btn\" data-collapse=\"whoseContent\" disabled=\"\" type=\"button\">Collapse</button>\n</div>\n<div class=\"section-content\" id=\"whoseContent\">\n<div class=\"explanation\"><strong>Whose</strong> asks about possession: <em>Whose book is this?</em> <strong>Who's</strong> is a contraction of <em>who is</em> or <em>who has</em>: <em>Who's taking the picture?</em> They sound the same, so use the sentence meaning to choose the correct spelling.</div>\n<div class=\"exercise-grid\" id=\"whose-exercises\">\n<article class=\"exercise-card\">\n<div class=\"exercise-head\">\n<div><h3>Exercise 1: Whose or Who's?</h3><p>Choose the form that completes the sentence.</p></div>\n<div class=\"score-pill\">Score: 5 / 6</div>\n</div>\n<div class=\"progress-track\"><div class=\"progress-bar\" style=\"width:60%\"></div></div>\n<div class=\"question-box\">\n<div class=\"question-meta\">Question 6 of 10</div>\n<div class=\"question-text\">_____ house did you stay at?</div>\n<div class=\"option-list\">\n<button class=\"option-btn correct-choice\" disabled=\"\">Whose</button>\n<button class=\"option-btn\" disabled=\"\">Who's</button>\n<button class=\"option-btn\" disabled=\"\">Who</button>\n</div>\n<div class=\"feedback correct show\">✓ Correct.\nWhose asks who owns the house.</div>\n</div>\n</article></div>\n</div>\n</section>\n<section class=\"section-card\" id=\"possessive-pronouns\">\n<div class=\"section-header\">\n<div>\n<div class=\"section-kicker\">Fundamental grammar</div>\n<h2>Possessive Pronouns and Adjectives</h2>\n</div>\n<button aria-expanded=\"true\" class=\"collapse-btn\" data-collapse=\"pronounsContent\" disabled=\"\" type=\"button\">Collapse</button>\n</div>\n<div class=\"section-content\" id=\"pronounsContent\">\n<div class=\"explanation\"><strong>Possessive adjectives</strong> come before nouns: <em>my pen, her bag, their room</em>. <strong>Possessive pronouns</strong> stand alone: <em>mine, hers, theirs</em>. Remember: <em>its</em> shows possession, while <em>it's</em> means <em>it is</em>; <em>their</em> shows possession, <em>there</em> indicates place, and <em>they're</em> means <em>they are</em>.</div>\n<div class=\"exercise-grid\" id=\"pronoun-exercises\">\n<article class=\"exercise-card\">\n<div class=\"exercise-head\">\n<div><h3>Exercise 1: Adjective or pronoun?</h3><p>Compare selected, correct, and incorrect answer states.</p></div>\n<div class=\"score-pill\">Score: 6 / 8</div>\n</div>\n<div class=\"progress-track\"><div class=\"progress-bar\" style=\"width:80%\"></div></div>\n<div class=\"question-box\">\n<div class=\"question-meta\">Question 8 of 10</div>\n<div class=\"question-text\">Is this _____ pen or _____?</div>\n<div class=\"option-list\">\n<button class=\"option-btn selected\" disabled=\"\">mine, your</button>\n<button class=\"option-btn correct-choice\" disabled=\"\">my, yours</button>\n<button class=\"option-btn wrong-choice\" disabled=\"\">mine, yours</button>\n</div>\n<div class=\"feedback incorrect show\">✗ Incorrect.\nModel answer: my, yours\nWhy: My modifies pen; yours stands alone.</div>\n<div class=\"practice-summary\"><strong>Practice focus</strong><ul><li>Use possessive adjectives before nouns.</li><li>Use possessive pronouns without a following noun.</li></ul></div>\n</div>\n</article></div>\n</div>\n</section>\n<section class=\"section-card\" id=\"timed-fluency\">\n<div class=\"section-header\">\n<div>\n<div class=\"section-kicker\">IELTS</div>\n<h2>45-Second Reason + Example</h2>\n</div>\n<button aria-expanded=\"true\" class=\"collapse-btn\" data-collapse=\"timedContent\" disabled=\"\" type=\"button\">Collapse</button>\n</div>\n<div class=\"section-content\" id=\"timedContent\">\n<div class=\"explanation\">Use a simple IELTS speaking shape: <strong>answer → reason → example/detail → final comment</strong>. Choose the 45-second challenge or untimed mode. The response locks when time ends or when you select <em>Finish and lock</em>.</div>\n<div class=\"exercise-card\">\n<div class=\"exercise-head\">\n<div>\n<h3>Timed Fluency Round</h3>\n<p>Prompts rotate without repeating until all 20 have been used.</p>\n</div>\n<div class=\"score-pill\" id=\"promptCounter\">Prompt 1 of 20</div>\n</div>\n<div class=\"timer-panel\">\n<div>\n<div class=\"timed-prompt\" id=\"timedPrompt\">Do you prefer studying alone or with friends? Give a reason and an example.</div>\n<p class=\"timed-instructions\" id=\"timedStatus\">Static sample: answer → reason → example/detail → final comment.</p>\n<label class=\"sr-only\" for=\"timedAnswer\">Your timed response</label>\n<textarea class=\"timed-answer\" disabled=\"\" id=\"timedAnswer\">I prefer studying with one friend because we can explain difficult ideas to each other. For example, before a test we compare notes and correct mistakes together.</textarea>\n<div class=\"mode-row\">\n<label class=\"mode-option\" for=\"untimedFluency\"><input disabled=\"\" id=\"untimedFluency\" type=\"checkbox\"/> Untimed mode</label>\n<span>Choose before starting</span>\n</div>\n<div class=\"button-row\">\n<button class=\"btn btn-accent\" disabled=\"\" id=\"startTimer\" type=\"button\">Start 45 seconds</button>\n<button class=\"btn btn-primary\" disabled=\"\" hidden=\"\" id=\"finishTimer\" type=\"button\">Finish and lock</button>\n<button class=\"btn btn-secondary\" disabled=\"\" id=\"restartTimer\" type=\"button\">Different prompt</button>\n</div>\n</div>\n<div aria-live=\"polite\" class=\"timer-display\">\n<strong id=\"timerValue\">28</strong>\n<span id=\"timerLabel\">seconds remaining</span>\n</div>\n</div>\n</div>\n</div>\n</section>\n<section class=\"section-card\" id=\"error-correction\">\n<div class=\"section-header\">\n<div>\n<div class=\"section-kicker\">IELTS</div>\n<h2>Error Correction and Answer Upgrade</h2>\n</div>\n<button aria-expanded=\"true\" class=\"collapse-btn\" data-collapse=\"errorContent\" disabled=\"\" type=\"button\">Collapse</button>\n</div>\n<div class=\"section-content\" id=\"errorContent\">\n<div class=\"explanation\">Rewrite each weak sentence in correct, natural English. The checker accepts common valid variations, but language can have more than one correct answer. Feedback gives a model correction, the main grammar point, and an optional IELTS-style upgrade with stronger vocabulary or detail.</div>\n<div class=\"exercise-grid\" id=\"error-exercises\">\n<article class=\"exercise-card\">\n<div class=\"exercise-head\">\n<div><h3>Exercise 1: Error correction</h3><p>Rewrite the complete sentence correctly.</p></div>\n<div class=\"score-pill\">Score: 4 / 5</div>\n</div>\n<div class=\"progress-track\"><div class=\"progress-bar\" style=\"width:50%\"></div></div>\n<div class=\"question-box\">\n<div class=\"question-meta\">Question 5 of 10</div>\n<div class=\"question-text\">Phone is important because many thing.</div>\n<textarea aria-label=\"Static correction example\" class=\"timed-answer\" disabled=\"\">A phone is important because it can do many things.</textarea>\n<div class=\"button-row\">\n<button class=\"btn btn-primary\" disabled=\"\">Check answer</button>\n<button class=\"btn btn-warning\" disabled=\"\">Show model</button>\n<button class=\"btn btn-secondary\" disabled=\"\">Restart exercise</button>\n</div>\n<div class=\"feedback correct show\">✓ Good correction.\nModel correction: A phone is important because it can do many things.\nFocus: Use an article, a complete clause, and a plural count noun.\nIELTS upgrade: A smartphone is useful because it supports communication, study, and daily planning.</div>\n</div>\n</article></div>\n</div>\n</section>\n<p class=\"source-note\">Practice content is adapted from the attached grammar and IELTS worksheets, with additional original questions for extended practice.</p>\n</main>\n<a aria-label=\"Back to table of contents\" class=\"back-to-toc\" href=\"#\">↑ Back to TOC</a>\n\n\n</body>\n</html>";
 
-    const defaults = [
+    const defaultsLight = [
       { name: '--background', value: '#FFFFFF', locked: false },
       { name: '--foreground', value: '#111827', locked: false },
       { name: '--primary', value: '#3B82F6', locked: false },
@@ -389,7 +512,24 @@
       { name: '--subtle', value: '#4B5563', locked: false }
     ];
 
-    let colors = defaults.map(item => ({ ...item }));
+    const defaultsDark = [
+      { name: '--background', value: '#111827', locked: false },
+      { name: '--foreground', value: '#F9FAFB', locked: false },
+      { name: '--primary', value: '#60A5FA', locked: false },
+      { name: '--secondary', value: '#34D399', locked: false },
+      { name: '--accent', value: '#FBBF24', locked: false },
+      { name: '--muted', value: '#1F2937', locked: false },
+      { name: '--border', value: '#374151', locked: false },
+      { name: '--subtle', value: '#CBD5E1', locked: false }
+    ];
+
+    let palettes = {
+      light: defaultsLight.map(item => ({ ...item })),
+      dark: defaultsDark.map(item => ({ ...item }))
+    };
+    let activeTheme = 'light';
+    let previewTheme = 'light';
+    let syncEnabled = true;
     let outputMode = 'css';
 
     const swatches = document.getElementById('swatches');
@@ -399,6 +539,15 @@
     const copyStatus = document.getElementById('copyStatus');
     const previewFrame = document.getElementById('previewFrame');
     const previewWrap = document.getElementById('previewWrap');
+    const themeHelp = document.getElementById('themeHelp');
+    const syncToggle = document.getElementById('syncToggle');
+    const syncLabel = document.getElementById('syncLabel');
+    const syncDialog = document.getElementById('syncDialog');
+    const syncDialogDescription = document.getElementById('syncDialogDescription');
+
+    function currentColors(theme = activeTheme) {
+      return palettes[theme];
+    }
 
     function normalizeHex(value) {
       const raw = String(value || '').trim().replace(/^#/, '');
@@ -423,6 +572,29 @@
       };
     }
 
+    function rgbToHsl(r, g, b) {
+      r /= 255; g /= 255; b /= 255;
+      const max = Math.max(r, g, b), min = Math.min(r, g, b);
+      let h = 0, s = 0;
+      const l = (max + min) / 2;
+      const d = max - min;
+      if (d !== 0) {
+        s = d / (1 - Math.abs(2 * l - 1));
+        switch (max) {
+          case r: h = 60 * (((g - b) / d) % 6); break;
+          case g: h = 60 * (((b - r) / d) + 2); break;
+          default: h = 60 * (((r - g) / d) + 4);
+        }
+      }
+      if (h < 0) h += 360;
+      return { h, s: s * 100, l: l * 100 };
+    }
+
+    function hexToHsl(hex) {
+      const { r, g, b } = hexToRgb(hex);
+      return rgbToHsl(r, g, b);
+    }
+
     function luminance(hex) {
       const { r, g, b } = hexToRgb(hex);
       const values = [r, g, b].map(value => {
@@ -443,13 +615,6 @@
       return `#${channel('r')}${channel('g')}${channel('b')}`.toUpperCase();
     }
 
-    function randomHex() {
-      const hue = Math.floor(Math.random() * 360);
-      const saturation = 45 + Math.floor(Math.random() * 46);
-      const lightness = 28 + Math.floor(Math.random() * 55);
-      return hslToHex(hue, saturation, lightness);
-    }
-
     function hslToHex(h, s, l) {
       s /= 100;
       l /= 100;
@@ -466,7 +631,108 @@
       return '#' + [r, g, b].map(value => Math.round((value + m) * 255).toString(16).padStart(2, '0')).join('').toUpperCase();
     }
 
+    function randomHex() {
+      const hue = Math.floor(Math.random() * 360);
+      const saturation = 45 + Math.floor(Math.random() * 46);
+      const lightness = 28 + Math.floor(Math.random() * 55);
+      return hslToHex(hue, saturation, lightness);
+    }
+
+    function convertColor(value, name, targetTheme) {
+      const key = String(name || '').toLowerCase();
+      const { h, s, l } = hexToHsl(value);
+      const chromatic = s >= 16;
+      let nextS = s;
+      let nextL = l;
+
+      if (targetTheme === 'dark') {
+        if (/(background|page|base)$/.test(key)) return '#111827';
+        if (/(foreground|(^|-)text|ink|crust)$/.test(key)) return '#F9FAFB';
+        if (/mantle|deep-surface/.test(key)) return '#0F172A';
+        if (/muted-strong|surface1/.test(key)) return '#374151';
+        if (/muted|surface|field/.test(key)) return '#1F2937';
+        if (/border|line|surface2/.test(key)) return '#374151';
+        if (/subtle|subtext/.test(key)) return '#CBD5E1';
+        if (/soft/.test(key)) {
+          nextS = Math.max(28, Math.min(72, s));
+          nextL = 15;
+        } else if (/(primary|secondary|accent|blue|green|yellow|red|peach|mauve)/.test(key) || chromatic) {
+          nextS = Math.max(52, Math.min(92, s));
+          nextL = Math.max(62, Math.min(72, 100 - l + 22));
+        } else {
+          nextS = Math.min(s, 34);
+          nextL = Math.max(12, Math.min(76, 100 - l));
+        }
+      } else {
+        if (/(background|page|base)$/.test(key)) return '#FFFFFF';
+        if (/(foreground|(^|-)text|ink|crust)$/.test(key)) return '#111827';
+        if (/mantle|deep-surface/.test(key)) return '#F8FAFC';
+        if (/muted-strong|surface1/.test(key)) return '#E5E7EB';
+        if (/muted|surface|field/.test(key)) return '#F3F4F6';
+        if (/border|line|surface2/.test(key)) return '#E5E7EB';
+        if (/subtle|subtext/.test(key)) return '#4B5563';
+        if (/soft/.test(key)) {
+          nextS = Math.max(45, Math.min(92, s));
+          nextL = 91;
+        } else if (/(primary|secondary|accent|blue|green|yellow|red|peach|mauve)/.test(key) || chromatic) {
+          nextS = Math.max(58, Math.min(92, s));
+          nextL = Math.max(42, Math.min(57, 100 - l - 10));
+        } else {
+          nextS = Math.min(s, 30);
+          nextL = Math.max(16, Math.min(96, 100 - l));
+        }
+      }
+      return hslToHex(h, nextS, nextL);
+    }
+
+    function convertPalette(source, targetTheme) {
+      return source.map((color, index) => ({
+        name: sanitizeName(color.name, index),
+        value: convertColor(color.value, color.name, targetTheme),
+        locked: Boolean(color.locked)
+      }));
+    }
+
+    function syncFromActive() {
+      if (!syncEnabled) return;
+      const target = activeTheme === 'light' ? 'dark' : 'light';
+      palettes[target] = convertPalette(palettes[activeTheme], target);
+    }
+
+    function updateSyncUI() {
+      syncToggle.setAttribute('aria-pressed', String(syncEnabled));
+      syncLabel.textContent = syncEnabled ? 'Synced' : 'Unsynced';
+      const activeLabel = activeTheme === 'light' ? 'Light' : 'Dark';
+      const otherLabel = activeTheme === 'light' ? 'Dark' : 'Light';
+      themeHelp.textContent = syncEnabled
+        ? `Editing ${activeLabel}. ${otherLabel} updates automatically from every change.`
+        : `Editing ${activeLabel}. Light and Dark can now be changed independently.`;
+    }
+
+    function setActiveTheme(theme) {
+      activeTheme = theme === 'dark' ? 'dark' : 'light';
+      previewTheme = activeTheme;
+      document.querySelectorAll('[data-theme-tab]').forEach(button => {
+        button.setAttribute('aria-selected', String(button.dataset.themeTab === activeTheme));
+      });
+      document.querySelectorAll('[data-preview-theme]').forEach(button => {
+        button.setAttribute('aria-pressed', String(button.dataset.previewTheme === previewTheme));
+      });
+      updateSyncUI();
+      render();
+    }
+
+    function commitPaletteChange() {
+      syncFromActive();
+      render();
+    }
+
+    let renderingSwatches = false;
+
     function renderSwatches() {
+      if (renderingSwatches) return;
+      renderingSwatches = true;
+      const colors = currentColors();
       swatches.style.setProperty('--count', colors.length);
       swatches.replaceChildren();
 
@@ -487,8 +753,8 @@
         randomButton.setAttribute('aria-label', `Randomize ${color.name}`);
         randomButton.textContent = '↻';
         randomButton.addEventListener('click', () => {
-          colors[index].value = randomHex();
-          render();
+          palettes[activeTheme][index].value = randomHex();
+          commitPaletteChange();
         });
 
         const lockLabel = document.createElement('label');
@@ -499,8 +765,10 @@
         lockInput.checked = color.locked;
         lockInput.setAttribute('aria-label', `Lock ${color.name}`);
         lockInput.addEventListener('change', event => {
-          colors[index].locked = event.target.checked;
+          palettes[activeTheme][index].locked = event.target.checked;
+          if (syncEnabled) syncFromActive();
           renderSwatches();
+          renderOutput();
         });
         const lockIcon = document.createElement('span');
         lockIcon.setAttribute('aria-hidden', 'true');
@@ -515,9 +783,9 @@
         removeButton.textContent = '×';
         removeButton.disabled = colors.length <= 2;
         removeButton.addEventListener('click', () => {
-          if (colors.length <= 2) return;
-          colors.splice(index, 1);
-          render();
+          if (palettes[activeTheme].length <= 2) return;
+          palettes[activeTheme].splice(index, 1);
+          commitPaletteChange();
         });
 
         tools.append(randomButton, lockLabel, removeButton);
@@ -530,8 +798,8 @@
         nameInput.value = color.name;
         nameInput.setAttribute('aria-label', `Variable name for ${color.value}`);
         nameInput.addEventListener('change', event => {
-          colors[index].name = sanitizeName(event.target.value, index);
-          render();
+          palettes[activeTheme][index].name = sanitizeName(event.target.value, index);
+          commitPaletteChange();
         });
 
         const row = document.createElement('div');
@@ -542,8 +810,8 @@
         hexInput.setAttribute('aria-label', `Hex value for ${color.name}`);
         hexInput.addEventListener('change', event => {
           const valid = normalizeHex(event.target.value);
-          if (valid) colors[index].value = valid;
-          render();
+          if (valid) palettes[activeTheme][index].value = valid;
+          commitPaletteChange();
         });
 
         const picker = document.createElement('input');
@@ -552,8 +820,8 @@
         picker.value = color.value;
         picker.setAttribute('aria-label', `Choose ${color.name}`);
         picker.addEventListener('input', event => {
-          colors[index].value = normalizeHex(event.target.value);
-          render();
+          palettes[activeTheme][index].value = normalizeHex(event.target.value);
+          commitPaletteChange();
         });
 
         row.append(hexInput, picker);
@@ -561,6 +829,7 @@
         swatch.append(tools, content);
         swatches.append(swatch);
       });
+      renderingSwatches = false;
     }
 
     function parsePalette(text) {
@@ -582,45 +851,63 @@
       return values.map((value, index) => ({ name: `--color-${index + 1}`, value, locked: false }));
     }
 
-    function exportText() {
-      if (outputMode === 'array') return JSON.stringify(colors.map(color => color.value.toLowerCase()));
-      return ':root {\n' + colors.map(color => `  ${color.name}: ${color.value};`).join('\n') + '\n}';
+    function parseThemeImport(text) {
+      const source = String(text || '').trim();
+      const darkMatch = source.match(/html\s*\[\s*data-theme\s*=\s*['\"]?dark['\"]?\s*\]\s*\{([\s\S]*?)\}/i);
+      const lightMatch = source.match(/:root\s*\{([\s\S]*?)\}/i);
+      if (lightMatch && darkMatch) {
+        return { light: parsePalette(lightMatch[1]), dark: parsePalette(darkMatch[1]), dual: true };
+      }
+      return { single: parsePalette(source), dual: false };
     }
 
-    function findByTerms(terms) {
+    function cssBlock(selector, colors) {
+      return `${selector} {\n${colors.map(color => `  ${color.name}: ${color.value};`).join('\n')}\n}`;
+    }
+
+    function exportText() {
+      if (outputMode === 'array') {
+        return JSON.stringify({
+          light: palettes.light.map(color => color.value.toLowerCase()),
+          dark: palettes.dark.map(color => color.value.toLowerCase())
+        }, null, 2);
+      }
+      return cssBlock(':root', palettes.light) + '\n\n' + cssBlock("html[data-theme='dark']", palettes.dark);
+    }
+
+    function findByTerms(colors, terms) {
       const found = colors.find(item => terms.some(term => item.name.toLowerCase().includes(term)));
       return found ? found.value : null;
     }
 
-    function deriveTheme() {
+    function deriveTheme(colors) {
       const values = colors.map(color => color.value);
       const sorted = [...values].sort((a, b) => luminance(a) - luminance(b));
       const darkest = sorted[0] || '#111827';
       const lightest = sorted[sorted.length - 1] || '#FFFFFF';
-      const isMostlyDark = values.reduce((sum, value) => sum + luminance(value), 0) / values.length < .25;
+      const isMostlyDark = values.reduce((sum, value) => sum + luminance(value), 0) / Math.max(values.length, 1) < .25;
 
-      const background = findByTerms(['background', 'page']) || (isMostlyDark ? darkest : lightest);
-      const surface = findByTerms(['surface']) || (isMostlyDark ? mix(darkest, '#FFFFFF', .08) : lightest);
-      const foreground = findByTerms(['foreground', 'text', 'ink']) || (luminance(surface) > .42 ? darkest : lightest);
-      const primary = findByTerms(['primary']) || values[Math.min(3, values.length - 1)] || '#3B82F6';
-      const secondary = findByTerms(['secondary']) || values[Math.min(1, values.length - 1)] || primary;
-      const accent = findByTerms(['accent']) || values[Math.min(4, values.length - 1)] || secondary;
-      const muted = findByTerms(['muted', 'surface-alt']) || mix(surface, foreground, isMostlyDark ? .12 : .07);
-      const border = findByTerms(['border']) || mix(surface, foreground, isMostlyDark ? .22 : .13);
-      const subtle = findByTerms(['subtle']) || mix(foreground, surface, .30);
+      const background = findByTerms(colors, ['background', 'page']) || (isMostlyDark ? darkest : lightest);
+      const surface = findByTerms(colors, ['surface']) || (isMostlyDark ? mix(darkest, '#FFFFFF', .08) : lightest);
+      const foreground = findByTerms(colors, ['foreground', 'text', 'ink']) || (luminance(surface) > .42 ? darkest : lightest);
+      const primary = findByTerms(colors, ['primary']) || values[Math.min(3, values.length - 1)] || '#3B82F6';
+      const secondary = findByTerms(colors, ['secondary']) || values[Math.min(1, values.length - 1)] || primary;
+      const accent = findByTerms(colors, ['accent']) || values[Math.min(4, values.length - 1)] || secondary;
+      const muted = findByTerms(colors, ['muted', 'surface-alt']) || mix(surface, foreground, isMostlyDark ? .12 : .07);
+      const border = findByTerms(colors, ['border']) || mix(surface, foreground, isMostlyDark ? .22 : .13);
+      const subtle = findByTerms(colors, ['subtle']) || mix(foreground, surface, .30);
 
-      const primaryHover = findByTerms(['primary-hover']) || mix(primary, foreground, .14);
-      const secondarySoft = findByTerms(['secondary-soft']) || mix(secondary, background, .82);
-      const accentSoft = findByTerms(['accent-soft']) || mix(accent, background, .82);
-      const mutedStrong = findByTerms(['muted-strong']) || mix(muted, foreground, isMostlyDark ? .18 : .10);
-      const blueSoft = findByTerms(['blue-soft']) || mix(primary, background, .82);
-      const mantle = findByTerms(['mantle', 'deep-surface']) || mix(foreground, background, .10);
+      const primaryHover = findByTerms(colors, ['primary-hover']) || mix(primary, foreground, .14);
+      const secondarySoft = findByTerms(colors, ['secondary-soft']) || mix(secondary, background, .82);
+      const accentSoft = findByTerms(colors, ['accent-soft']) || mix(accent, background, .82);
+      const mutedStrong = findByTerms(colors, ['muted-strong']) || mix(muted, foreground, isMostlyDark ? .18 : .10);
+      const blueSoft = findByTerms(colors, ['blue-soft']) || mix(primary, background, .82);
+      const mantle = findByTerms(colors, ['mantle', 'deep-surface']) || mix(foreground, background, .10);
 
       return {
         background, surface, foreground, primary, primaryHover, secondary, secondarySoft,
         accent, accentSoft, muted, mutedStrong, blueSoft, border, subtle, mantle,
         page: mix(background, foreground, isMostlyDark ? .04 : .07),
-        heroText: readableText(primary),
         primaryText: readableText(primary),
         secondaryText: readableText(secondary),
         accentText: readableText(accent),
@@ -629,8 +916,8 @@
     }
 
     function buildPreviewHtml() {
-      const theme = deriveTheme();
-      const previewScheme = luminance(theme.background) < .25 ? 'dark' : 'light';
+      const theme = deriveTheme(palettes[previewTheme]);
+      const previewScheme = previewTheme;
       const overrides = `
         <style id="palette-studio-overrides">
           :root, html[data-theme="dark"] {
@@ -692,7 +979,14 @@
           a, button, input, textarea, select { pointer-events: none !important; }
           * { animation: none !important; transition: none !important; }
         </style>`;
-      return QUIZ_STATIC_HTML.replace('</head>', overrides + '</head>');
+      let themedHtml = QUIZ_STATIC_HTML.replace(
+        '<html data-static-preview="true"',
+        `<html data-static-preview="true" data-theme="${previewTheme}"`
+      );
+      themedHtml = themedHtml
+        .replace('Dark mode', previewTheme === 'dark' ? 'Light mode' : 'Dark mode')
+        .replace('Flat light', previewTheme === 'dark' ? 'Flat dark' : 'Flat light');
+      return themedHtml.replace('</head>', overrides + '</head>');
     }
 
     function renderOutput() {
@@ -707,26 +1001,45 @@
       renderSwatches();
       renderOutput();
       renderPreview();
+      updateSyncUI();
+    }
+
+    function randomizeTheme(theme) {
+      palettes[theme] = palettes[theme].map(color => color.locked ? color : { ...color, value: randomHex() });
+      if (syncEnabled) {
+        const target = theme === 'light' ? 'dark' : 'light';
+        palettes[target] = convertPalette(palettes[theme], target);
+      }
+      render();
     }
 
     function randomizeUnlocked() {
-      colors = colors.map(color => color.locked ? color : { ...color, value: randomHex() });
-      render();
+      randomizeTheme(activeTheme);
     }
 
     document.getElementById('randomizeAll').addEventListener('click', randomizeUnlocked);
-    document.getElementById('shuffleFromPreview').addEventListener('click', randomizeUnlocked);
+    document.getElementById('shuffleFromPreview').addEventListener('click', () => randomizeTheme(previewTheme));
 
     document.getElementById('addColor').addEventListener('click', () => {
+      const colors = currentColors();
       colors.push({ name: `--color-${colors.length + 1}`, value: randomHex(), locked: false });
-      render();
+      commitPaletteChange();
       swatches.scrollTo({ left: swatches.scrollWidth, behavior: 'smooth' });
     });
 
     document.getElementById('importButton').addEventListener('click', () => {
       try {
-        colors = parsePalette(importInput.value);
-        importStatus.textContent = `Imported ${colors.length} color${colors.length === 1 ? '' : 's'}.`;
+        const result = parseThemeImport(importInput.value);
+        if (result.dual) {
+          palettes.light = result.light;
+          palettes.dark = result.dark;
+          syncEnabled = false;
+          importStatus.textContent = `Imported ${result.light.length} light and ${result.dark.length} dark colors. Sync was turned off to preserve both palettes.`;
+        } else {
+          palettes[activeTheme] = result.single;
+          syncFromActive();
+          importStatus.textContent = `Imported ${result.single.length} color${result.single.length === 1 ? '' : 's'} into ${activeTheme}.`;
+        }
         importStatus.className = 'status';
         render();
       } catch (error) {
@@ -737,16 +1050,25 @@
 
     document.getElementById('sampleButton').addEventListener('click', () => {
       importInput.value = '["#606c38", "#283618", "#fefae0", "#dda15e", "#bc6c25"]';
-      colors = parsePalette(importInput.value);
-      importStatus.textContent = 'Loaded the sample palette.';
+      palettes[activeTheme] = parsePalette(importInput.value);
+      syncFromActive();
+      importStatus.textContent = `Loaded the sample palette into ${activeTheme}.`;
       importStatus.className = 'status';
       render();
     });
 
     document.getElementById('resetButton').addEventListener('click', () => {
-      colors = defaults.map(item => ({ ...item }));
-      importStatus.textContent = 'Restored the uploaded design-system colors.';
+      palettes = {
+        light: defaultsLight.map(item => ({ ...item })),
+        dark: defaultsDark.map(item => ({ ...item }))
+      };
+      syncEnabled = true;
+      activeTheme = 'light';
+      previewTheme = 'light';
+      importStatus.textContent = 'Restored both uploaded design-system themes and automatic sync.';
       importStatus.className = 'status';
+      document.querySelectorAll('[data-theme-tab]').forEach(button => button.setAttribute('aria-selected', String(button.dataset.themeTab === 'light')));
+      document.querySelectorAll('[data-preview-theme]').forEach(button => button.setAttribute('aria-pressed', String(button.dataset.previewTheme === 'light')));
       render();
     });
 
@@ -761,12 +1083,12 @@
     document.getElementById('copyButton').addEventListener('click', async () => {
       try {
         await navigator.clipboard.writeText(exportOutput.value);
-        copyStatus.textContent = 'Copied to clipboard.';
+        copyStatus.textContent = 'Copied both themes to clipboard.';
       } catch (_) {
         exportOutput.focus();
         exportOutput.select();
         const successful = document.execCommand('copy');
-        copyStatus.textContent = successful ? 'Copied to clipboard.' : 'Select the text and copy it manually.';
+        copyStatus.textContent = successful ? 'Copied both themes to clipboard.' : 'Select the text and copy it manually.';
       }
     });
 
@@ -777,6 +1099,44 @@
         document.querySelectorAll('[data-view-panel]').forEach(panel => panel.classList.toggle('active', panel.dataset.viewPanel === view));
         if (view === 'website') renderPreview();
       });
+    });
+
+    document.querySelectorAll('[data-theme-tab]').forEach(button => {
+      button.addEventListener('click', () => setActiveTheme(button.dataset.themeTab));
+    });
+
+    document.querySelectorAll('[data-preview-theme]').forEach(button => {
+      button.addEventListener('click', () => {
+        previewTheme = button.dataset.previewTheme === 'dark' ? 'dark' : 'light';
+        document.querySelectorAll('[data-preview-theme]').forEach(item => {
+          item.setAttribute('aria-pressed', String(item === button));
+        });
+        renderPreview();
+      });
+    });
+
+    syncToggle.addEventListener('click', () => {
+      if (syncEnabled) {
+        syncEnabled = false;
+        updateSyncUI();
+        return;
+      }
+      const sourceLabel = activeTheme === 'light' ? 'Light' : 'Dark';
+      const targetLabel = activeTheme === 'light' ? 'Dark' : 'Light';
+      syncDialogDescription.textContent = `${sourceLabel} will become the source. ${targetLabel} will be regenerated from it.`;
+      if (typeof syncDialog.showModal === 'function') {
+        syncDialog.showModal();
+      } else if (window.confirm(`Turn sync on? ${targetLabel} will be overwritten from ${sourceLabel}. This cannot be undone.`)) {
+        syncEnabled = true;
+        syncFromActive();
+        render();
+      }
+    });
+
+    document.getElementById('confirmSync').addEventListener('click', () => {
+      syncEnabled = true;
+      syncFromActive();
+      render();
     });
 
     document.querySelectorAll('.device-button').forEach(button => {
